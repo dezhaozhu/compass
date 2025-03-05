@@ -126,7 +126,7 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 					</p>
 				</div>
 
-				<div style={{ marginBottom: 5 }}>
+				{/* <div style={{ marginBottom: 5 }}>
 					<VSCodeCheckbox
 						style={{ marginBottom: "5px" }}
 						checked={telemetrySetting === "enabled"}
@@ -151,7 +151,7 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 						</VSCodeLink>{" "}
 						for more details.
 					</p>
-				</div>
+				</div> */}
 
 				{IS_DEV && (
 					<>
@@ -186,7 +186,7 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 						Advanced Settings
 					</SettingsButton>
 				</div>
-				<div
+				{/* <div
 					style={{
 						textAlign: "center",
 						color: "var(--vscode-descriptionForeground)",
@@ -213,7 +213,7 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 						}}>
 						v{version}
 					</p>
-				</div>
+				</div> */}
 			</div>
 		</div>
 	)

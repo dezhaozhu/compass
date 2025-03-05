@@ -11,8 +11,8 @@ const WelcomeView = () => {
 	const { apiConfiguration } = useExtensionState()
 
 	const [apiErrorMessage, setApiErrorMessage] = useState<string | undefined>(undefined)
-	const [email, setEmail] = useState("")
-	const [isSubscribed, setIsSubscribed] = useState(false)
+	// const [email, setEmail] = useState("")
+	// const [isSubscribed, setIsSubscribed] = useState(false)
 
 	const disableLetsGoButton = apiErrorMessage != null
 
@@ -20,26 +20,26 @@ const WelcomeView = () => {
 		vscode.postMessage({ type: "apiConfiguration", apiConfiguration })
 	}
 
-	const handleSubscribe = () => {
-		if (email) {
-			vscode.postMessage({ type: "subscribeEmail", text: email })
-		}
-	}
+	// const handleSubscribe = () => {
+	// 	if (email) {
+	// 		vscode.postMessage({ type: "subscribeEmail", text: email })
+	// 	}
+	// }
 
 	useEffect(() => {
 		setApiErrorMessage(validateApiConfiguration(apiConfiguration))
 	}, [apiConfiguration])
 
 	// Add message handler for subscription confirmation
-	const handleMessage = useCallback((e: MessageEvent) => {
-		const message: ExtensionMessage = e.data
-		if (message.type === "emailSubscribed") {
-			setIsSubscribed(true)
-			setEmail("")
-		}
-	}, [])
+	// const handleMessage = useCallback((e: MessageEvent) => {
+	// 	const message: ExtensionMessage = e.data
+	// 	if (message.type === "emailSubscribed") {
+	// 		setIsSubscribed(true)
+	// 		setEmail("")
+	// 	}
+	// }, [])
 
-	useEvent("message", handleMessage)
+	// useEvent("message", handleMessage)
 
 	return (
 		<div
@@ -56,17 +56,14 @@ const WelcomeView = () => {
 					padding: "0 20px",
 					overflow: "auto",
 				}}>
-				<h2>Hi, I'm Cline</h2>
+				<h2>Hi, I'm Compass</h2>
 				<p>
-					I can do all kinds of tasks thanks to breakthroughs in Claude 3.7 Sonnet's agentic coding capabilities and
-					access to tools that let me create & edit files, explore complex projects, use the browser, and execute
-					terminal commands (with your permission, of course). I can even use MCP to create new tools and extend my own
-					capabilities.
+				I can handle complex industrial production tasks step-by-step. With tools that let him use the browser, and execute terminal commands (after you grant permission), he can assist you in ways that go beyond production scheduling, form filling, standards comparison, and information extraction.
 				</p>
 
-				<b>To get started, this extension needs an API provider for Claude 3.7 Sonnet.</b>
+				<b>To get started, this extension needs an LLM API provider.</b>
 
-				<div
+				{/* <div
 					style={{
 						marginTop: "15px",
 						padding: isSubscribed ? "5px 15px 5px 15px" : "12px",
@@ -99,7 +96,7 @@ const WelcomeView = () => {
 							</div>
 						</>
 					)}
-				</div>
+				</div> */}
 
 				<div style={{ marginTop: "15px" }}>
 					<ApiOptions showModelOptions={false} />
