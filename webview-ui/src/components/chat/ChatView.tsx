@@ -794,7 +794,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 
 					{showAnnouncement && <Announcement version={version} hideAnnouncement={hideAnnouncement} />}
 
-					<div style={{ padding: "0 20px", flexShrink: 0 }}>
+					{/* <div style={{ padding: "0 20px", flexShrink: 0 }}>
 						<h2>What can I do for you?</h2>
 						<p>
 							Thanks to Claude 3.7 Sonnet's agentic coding capabilities, I can handle complex software development
@@ -803,7 +803,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 							beyond code completion or tech support. I can even use MCP to create new tools and extend my own
 							capabilities.
 						</p>
-					</div>
+					</div> */}
 					{taskHistory.length > 0 && <HistoryPreview showHistoryView={showHistoryView} />}
 				</div>
 			)}

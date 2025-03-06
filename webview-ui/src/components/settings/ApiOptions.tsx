@@ -295,6 +295,13 @@ const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage, is
 			{selectedProvider === "openai" && (
 				<div>
 					<VSCodeTextField
+						value={apiConfiguration?.openAiModelId || ""}
+						style={{ width: "100%" }}
+						onInput={handleInputChange("openAiModelId")}
+						placeholder={"Enter Model ID..."}>
+						<span style={{ fontWeight: 500 }}>Model ID</span>
+					</VSCodeTextField>
+					<VSCodeTextField
 						value={apiConfiguration?.openAiBaseUrl || ""}
 						style={{ width: "100%" }}
 						type="url"
@@ -309,13 +316,6 @@ const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage, is
 						onInput={handleInputChange("openAiApiKey")}
 						placeholder="Enter API Key...">
 						<span style={{ fontWeight: 500 }}>API Key</span>
-					</VSCodeTextField>
-					<VSCodeTextField
-						value={apiConfiguration?.openAiModelId || ""}
-						style={{ width: "100%" }}
-						onInput={handleInputChange("openAiModelId")}
-						placeholder={"Enter Model ID..."}>
-						<span style={{ fontWeight: 500 }}>Model ID</span>
 					</VSCodeTextField>
 					{/* <VSCodeCheckbox
 						checked={azureApiVersionSelected}

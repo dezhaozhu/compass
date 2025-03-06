@@ -155,7 +155,7 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 
 				{IS_DEV && (
 					<>
-						<div style={{ marginTop: "10px", marginBottom: "4px" }}>Debug</div>
+						{/* <div style={{ marginTop: "10px", marginBottom: "4px" }}>Debug</div> */}
 						<VSCodeButton onClick={handleResetState} style={{ marginTop: "5px", width: "auto" }}>
 							Reset State
 						</VSCodeButton>

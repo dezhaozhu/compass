@@ -1,6 +1,6 @@
 {
 	"name": "claude-dev",
-	"displayName": "Cline",
+	"displayName": "Compass",
 	"description": "Autonomous coding agent right in your IDE, capable of creating/editing files, running commands, using the browser, and more with your permission every step of the way.",
 	"version": "3.5.1",
 	"icon": "assets/icons/icon.png",
@@ -12,7 +12,7 @@
 		"vscode": "^1.84.0"
 	},
 	"author": {
-		"name": "Cline Bot Inc."
+		"name": "Compass Bot Inc."
 	},
 	"license": "Apache-2.0",
 	"publisher": "saoudrizwan",
@@ -50,7 +50,7 @@
 			"activitybar": [
 				{
 					"id": "claude-dev-ActivityBar",
-					"title": "Cline",
+					"title": "Compass",
 					"icon": "assets/icons/icon.svg"
 				}
 			]
@@ -93,7 +93,7 @@
 			{
 				"command": "cline.openInNewTab",
 				"title": "Open In New Tab",
-				"category": "Cline"
+				"category": "Compass"
 			}
 		],
 		"menus": {
@@ -126,7 +126,7 @@
 			]
 		},
 		"configuration": {
-			"title": "Cline",
+			"title": "Compass",
 			"properties": {
 				"cline.vsCodeLmModelSelector": {
 					"type": "object",
@@ -205,7 +205,7 @@
 						"Turkish - Türkçe"
 					],
 					"default": "English",
-					"description": "The language that Cline should use for communication."
+					"description": "The language that Compass should use for communication."
 				},
 				"cline.mcpMarketplace.enabled": {
 					"type": "boolean",
