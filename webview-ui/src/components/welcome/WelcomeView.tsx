@@ -58,7 +58,9 @@ const WelcomeView = () => {
 				}}>
 				<h2>Hi, I'm Compass</h2>
 				<p>
-				I can handle complex industrial production tasks step-by-step. With tools that let him use the browser, and execute terminal commands (after you grant permission), he can assist you in ways that go beyond production scheduling, form filling, standards comparison, and information extraction.
+					I can handle complex industrial production tasks step-by-step. With tools that let him use the browser, and
+					execute terminal commands (after you grant permission), he can assist you in ways that go beyond production
+					scheduling, form filling, standards comparison, and information extraction.
 				</p>
 
 				<b>To get started, this extension needs an LLM API provider.</b>
