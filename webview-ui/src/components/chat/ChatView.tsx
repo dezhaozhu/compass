@@ -790,7 +790,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 						flexDirection: "column",
 						paddingBottom: "10px",
 					}}>
-					{telemetrySetting === "unset" && <TelemetryBanner />}
+					{/* {telemetrySetting === "unset" && <TelemetryBanner />} */}
 
 					{showAnnouncement && <Announcement version={version} hideAnnouncement={hideAnnouncement} />}
 
