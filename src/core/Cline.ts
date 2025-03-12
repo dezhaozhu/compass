@@ -16,6 +16,7 @@ import CheckpointTracker from "../integrations/checkpoints/CheckpointTracker"
 import { DIFF_VIEW_URI_SCHEME, DiffViewProvider } from "../integrations/editor/DiffViewProvider"
 import { findToolName, formatContentBlockToMarkdown } from "../integrations/misc/export-markdown"
 import { extractTextFromFile } from "../integrations/misc/extract-text"
+import { extractExelFile } from "../integrations/misc/extract-excel"
 import { showSystemNotification } from "../integrations/notifications"
 import { TerminalManager } from "../integrations/terminal/TerminalManager"
 import { BrowserSession } from "../services/browser/BrowserSession"
@@ -1230,6 +1231,7 @@ export class Cline {
 		if (this.autoApprovalSettings.enabled) {
 			switch (toolName) {
 				case "read_file":
+				case "read_excel":
 				case "list_files":
 				case "list_code_definition_names":
 				case "search_files":
@@ -1494,6 +1496,8 @@ export class Cline {
 						case "execute_command":
 							return `[${block.name} for '${block.params.command}']`
 						case "read_file":
+							return `[${block.name} for '${block.params.path}']`
+						case "read_excel":
 							return `[${block.name} for '${block.params.path}']`
 						case "write_to_file":
 							return `[${block.name} for '${block.params.path}']`
@@ -1989,6 +1993,72 @@ export class Cline {
 							}
 						} catch (error) {
 							await handleError("reading file", error)
+
+							break
+						}
+					}
+					case "read_excel": {
+						const relPath: string | undefined = block.params.path
+						const sharedMessageProps: ClineSayTool = {
+							tool: "readExcel",
+							path: getReadablePath(cwd, removeClosingTag("path", relPath)),
+						}
+						try {
+							if (block.partial) {
+								const partialMessage = JSON.stringify({
+									...sharedMessageProps,
+									content: undefined,
+								} satisfies ClineSayTool)
+								if (this.shouldAutoApproveTool(block.name)) {
+									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+									await this.say("tool", partialMessage, undefined, block.partial)
+								} else {
+									this.removeLastPartialMessageIfExistsWithType("say", "tool")
+									await this.ask("tool", partialMessage, block.partial).catch(() => {})
+								}
+								break
+							} else {
+								if (!relPath) {
+									this.consecutiveMistakeCount++
+									pushToolResult(await this.sayAndCreateMissingParamError("read_excel", "path"))
+									break
+								}
+
+								const accessAllowed = this.clineIgnoreController.validateAccess(relPath)
+								if (!accessAllowed) {
+									await this.say("clineignore_error", relPath)
+									pushToolResult(formatResponse.toolError(formatResponse.clineIgnoreError(relPath)))
+									break
+								}
+
+								this.consecutiveMistakeCount = 0
+								const absolutePath = path.resolve(cwd, relPath)
+								const completeMessage = JSON.stringify({
+									...sharedMessageProps,
+									content: absolutePath,
+								} satisfies ClineSayTool)
+								if (this.shouldAutoApproveTool(block.name)) {
+									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+									await this.say("tool", completeMessage, undefined, false) // need to be sending partialValue bool, since undefined has its own purpose in that the message is treated neither as a partial or completion of a partial, but as a single complete message
+									this.consecutiveAutoApprovedRequestsCount++
+								} else {
+									showNotificationForApprovalIfAutoApprovalEnabled(
+										`Cline wants to read ${path.basename(absolutePath)}`,
+									)
+									this.removeLastPartialMessageIfExistsWithType("say", "tool")
+									const didApprove = await askApproval("tool", completeMessage)
+									if (!didApprove) {
+										break
+									}
+								}
+								// now execute the tool like normal
+								const content = await extractExelFile(absolutePath)
+								pushToolResult(content)
+
+								break
+							}
+						} catch (error) {
+							await handleError("reading excel file", error)
 
 							break
 						}

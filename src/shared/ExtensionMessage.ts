@@ -159,6 +159,7 @@ export interface ClineSayTool {
 		| "editedExistingFile"
 		| "newFileCreated"
 		| "readFile"
+		| "readExcel"
 		| "listFilesTopLevel"
 		| "listFilesRecursive"
 		| "listCodeDefinitionNames"

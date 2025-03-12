@@ -22,6 +22,7 @@ export const toolUseNames = [
 	"ask_followup_question",
 	"plan_mode_response",
 	"attempt_completion",
+	"read_excel",
 ] as const
 
 // Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)
@@ -73,6 +74,11 @@ export interface ReadFileToolUse extends ToolUse {
 export interface WriteToFileToolUse extends ToolUse {
 	name: "write_to_file"
 	params: Partial<Pick<Record<ToolParamName, string>, "path" | "content">>
+}
+
+export interface ReadExcelToolUse extends ToolUse {
+	name: "read_excel"
+	params: Partial<Pick<Record<ToolParamName, string>, "path">>
 }
 
 export interface ReplaceInFileToolUse extends ToolUse {

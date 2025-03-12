@@ -48,6 +48,15 @@ Usage:
 <requires_approval>true or false</requires_approval>
 </execute_command>
 
+## read_excel
+Description: Request to extract detailed cell information from an excel file at the specified path. Use this when you need to examine the contents of an existing excel file you do not know the contents of, for example to analyze data, statistical data, review information, or summarizing preferences from excel files. Automatically extracts raw data from Excel files. May not be suitable for other types of binary files, as it returns the raw content as json.
+Parameters:
+- path: (required) The path of the excel file to read (relative to the current working directory ${cwd.toPosix()})
+Usage:
+<read_excel>
+<path>File path here</path>
+</read_excel>
+
 ## read_file
 Description: Request to read the contents of a file at the specified path. Use this when you need to examine the contents of an existing file you do not know the contents of, for example to analyze code, review text files, or extract information from configuration files. Automatically extracts raw text from PDF and DOCX files. May not be suitable for other types of binary files, as it returns the raw content as a string.
 Parameters:
