@@ -5,8 +5,7 @@ import mammoth from "mammoth"
 import fs from "fs/promises"
 import { isBinaryFile } from "isbinaryfile"
 
-import * as XLSX from 'xlsx'
-
+import * as XLSX from "xlsx"
 
 export async function extractExelFile(filePath: string): Promise<string> {
 	try {
@@ -17,40 +16,38 @@ export async function extractExelFile(filePath: string): Promise<string> {
 	const fileExtension = path.extname(filePath).toLowerCase()
 
 	// switch (fileExtension) {
-    //     case ".xlsx":
-    //         const workbook = await XLSX.readFile(filePath)
-    //         const sheetName = workbook.SheetNames[0]
-    //         const worksheet = workbook.Sheets[sheetName]
-    //         const jsonData = XLSX.utils.sheet_to_json(worksheet)
-    //         return JSON.stringify(jsonData)
+	//     case ".xlsx":
+	//         const workbook = await XLSX.readFile(filePath)
+	//         const sheetName = workbook.SheetNames[0]
+	//         const worksheet = workbook.Sheets[sheetName]
+	//         const jsonData = XLSX.utils.sheet_to_json(worksheet)
+	//         return JSON.stringify(jsonData)
 	// 	default:
 	// 		throw new Error(`Cannot read excel for file type: ${fileExtension}`)
 
-    switch (fileExtension) {
-        case ".xlsx":
-        case ".xls":
-        case ".xlsm":
-        case ".xlsb":
-        case ".csv":
+	switch (fileExtension) {
+		case ".xlsx":
+		case ".xls":
+		case ".xlsm":
+		case ".xlsb":
+		case ".csv":
 			const workbook = XLSX.readFile(filePath)
 			const sheetNames = workbook.SheetNames
 			const allSheetsData: Record<string, any[]> = {}
 			for (const sheetName of sheetNames) {
 				const worksheet = workbook.Sheets[sheetName]
-				const sheetData = XLSX.utils.sheet_to_json(worksheet, { 
-					header: 1, 
-					defval: "", 
-					raw: false
+				const sheetData = XLSX.utils.sheet_to_json(worksheet, {
+					header: 1,
+					defval: "",
+					raw: false,
 				}) as any[]
-				const filteredData = sheetData.filter(row => 
-					Array.isArray(row) && row.some(cell => cell !== "")
-				)
+				const filteredData = sheetData.filter((row) => Array.isArray(row) && row.some((cell) => cell !== ""))
 				allSheetsData[sheetName] = filteredData
 			}
 			return JSON.stringify(allSheetsData)
-        default:
-            throw new Error(`Cannot read excel for file type: ${fileExtension}`)
-    }
+		default:
+			throw new Error(`Cannot read excel for file type: ${fileExtension}`)
+	}
 
 	// switch (fileExtension) {
 	// 	case ".pdf":
@@ -67,7 +64,6 @@ export async function extractExelFile(filePath: string): Promise<string> {
 	// 			throw new Error(`Cannot read text for file type: ${fileExtension}`)
 	// 		}
 	// }
-
 }
 
 // async function extractTextFromPDF(filePath: string): Promise<string> {
