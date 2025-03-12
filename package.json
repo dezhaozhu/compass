@@ -2,7 +2,7 @@
 	"name": "claude-dev",
 	"displayName": "Compass",
 	"description": "Autonomous coding agent right in your IDE, capable of creating/editing files, running commands, using the browser, and more with your permission every step of the way.",
-	"version": "3.5.1",
+	"version": "3.6.10",
 	"icon": "assets/icons/icon.png",
 	"galleryBanner": {
 		"color": "#617A91",
@@ -247,6 +247,7 @@
 		"@types/mocha": "^10.0.7",
 		"@types/node": "20.x",
 		"@types/should": "^11.2.0",
+		"@types/sinon": "^17.0.4",
 		"@types/vscode": "^1.84.0",
 		"@types/xlsx": "^0.0.35",
 		"@typescript-eslint/eslint-plugin": "^7.14.1",
@@ -261,7 +262,8 @@
 		"prettier": "^3.3.3",
 		"should": "^13.2.3",
 		"typescript": "^5.4.5",
-		"xlsx": "^0.18.5"
+		"xlsx": "^0.18.5",
+		"sinon": "^19.0.2"
 	},
 	"dependencies": {
 		"@anthropic-ai/bedrock-sdk": "^0.12.4",
@@ -276,7 +278,7 @@
 		"@types/pdf-parse": "^1.1.4",
 		"@types/turndown": "^5.0.5",
 		"@vscode/codicons": "^0.0.36",
-		"axios": "^1.7.4",
+		"axios": "^1.8.2",
 		"cheerio": "^1.0.0",
 		"chokidar": "^4.0.1",
 		"clone-deep": "^4.0.1",
