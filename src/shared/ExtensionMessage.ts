@@ -168,6 +168,7 @@ export interface ClineSayTool {
 		| "listFilesRecursive"
 		| "listCodeDefinitionNames"
 		| "searchFiles"
+		| "captureUserPreferences"
 	path?: string
 	diff?: string
 	content?: string

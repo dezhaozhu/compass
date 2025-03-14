@@ -57,6 +57,15 @@ Usage:
 <path>File path here</path>
 </read_excel>
 
+## capture_user_preferences
+Description: 分析某个排程文件中人工偏好的信息，当用户给定某个xlsx 文件时，使用该工具直接分析指定文件中人工偏好的信息，并返回一个json 对象
+Parameters:
+- path: (required) The path of the file to capture the user's preferences from (relative to the current working directory ${cwd.toPosix()})
+Usage:
+<capture_user_preferences>
+<path>File path here</path>
+</capture_user_preferences>
+
 ## read_file
 Description: Request to read the contents of a file at the specified path. Use this when you need to examine the contents of an existing file you do not know the contents of, for example to analyze code, review text files, or extract information from configuration files. Automatically extracts raw text from PDF and DOCX files. May not be suitable for other types of binary files, as it returns the raw content as a string.
 Parameters:
