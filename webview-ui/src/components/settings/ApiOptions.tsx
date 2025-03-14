@@ -214,9 +214,9 @@ const ApiOptions = ({ showModelOptions, apiErrorMessage, modelIdErrorMessage, is
 				<div style={{ marginBottom: 8, marginTop: 4 }}>
 					<ClineAccountView />
 				</div>
-			)}
+			)} */}
 
-			{selectedProvider === "asksage" && (
+			{/* {selectedProvider === "asksage" && (
 				<div>
 					<VSCodeTextField
 						value={apiConfiguration?.asksageApiKey || ""}

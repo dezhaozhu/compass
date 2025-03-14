@@ -165,49 +165,14 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 					flexDirection: "column",
 				}}>
 				{/* Tabs container */}
-				{planActSeparateModelsSetting ? (
-					<div
-						style={{
-							border: "1px solid var(--vscode-panel-border)",
-							borderRadius: "4px",
-							padding: "10px",
-							marginBottom: "20px",
-							background: "var(--vscode-panel-background)",
-						}}>
-						<div
-							style={{
-								display: "flex",
-								gap: "1px",
-								marginBottom: "10px",
-								marginTop: -8,
-								borderBottom: "1px solid var(--vscode-panel-border)",
-							}}>
-							<TabButton isActive={chatSettings.mode === "plan"} onClick={() => handleTabChange("plan")}>
-								Plan Mode
-							</TabButton>
-							<TabButton isActive={chatSettings.mode === "act"} onClick={() => handleTabChange("act")}>
-								Act Mode
-							</TabButton>
-						</div>
-
-						{/* Content container */}
-						<div style={{ marginBottom: -12 }}>
-							<ApiOptions
-								key={chatSettings.mode}
-								showModelOptions={true}
-								apiErrorMessage={apiErrorMessage}
-								modelIdErrorMessage={modelIdErrorMessage}
-							/>
-						</div>
-					</div>
-				) : (
+				{
 					<ApiOptions
 						key={"single"}
 						showModelOptions={true}
 						apiErrorMessage={apiErrorMessage}
 						modelIdErrorMessage={modelIdErrorMessage}
 					/>
-				)}
+				}
 
 				<div style={{ marginBottom: 5 }}>
 					<VSCodeTextArea
