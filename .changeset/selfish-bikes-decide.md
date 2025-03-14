@@ -2,4 +2,4 @@
 "claude-dev": patch
 ---
 
-Add webview to lint job
+Add Korean language
