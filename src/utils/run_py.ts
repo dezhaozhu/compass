@@ -1,6 +1,6 @@
 import { spawn } from "child_process"
-import * as vscode from 'vscode';
-import { execa } from 'execa';
+import * as vscode from "vscode"
+import { execa } from "execa"
 
 /**
  * Runs a Python script and returns the output.
@@ -14,10 +14,10 @@ export function runPythonScript(
 	args: string[],
 	callback: (error: string | null, data: string | null) => void,
 ) {
-
-	const pythonPath = vscode.workspace.getConfiguration('python').get<string>('defaultInterpreterPath') || 
-	vscode.workspace.getConfiguration('python').get<string>('pythonPath') || 
-	'python'; // 默认使用系统 PATH 中的 python 命令
+	const pythonPath =
+		vscode.workspace.getConfiguration("python").get<string>("defaultInterpreterPath") ||
+		vscode.workspace.getConfiguration("python").get<string>("pythonPath") ||
+		"python" // 默认使用系统 PATH 中的 python 命令
 
 	const pythonProcess = spawn(
 		// "D:\\miniconda3\\envs\\dl_torch2\\python.exe", // 指定 Python 解释器路径
@@ -44,4 +44,3 @@ export function runPythonScript(
 		}
 	})
 }
-
