@@ -380,7 +380,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
             <link rel="stylesheet" type="text/css" href="${stylesUri}">
             <link href="${codiconsUri}" rel="stylesheet" />
 						<meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src https://*.posthog.com https://*.firebaseauth.com https://*.firebaseio.com https://*.googleapis.com https://*.firebase.com; font-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} https: data:; script-src 'nonce-${nonce}' 'unsafe-eval';">
-            <title>Cline</title>
+            <title>Compass</title>
           </head>
           <body>
             <noscript>You need to enable JavaScript to run this app.</noscript>
@@ -407,7 +407,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			await axios.get(`http://${localServerUrl}`)
 		} catch (error) {
 			vscode.window.showErrorMessage(
-				"Cline: Local webview dev server is not running, HMR will not work. Please run 'npm run dev:webview' before launching the extension to enable HMR. Using bundled assets.",
+				"Compass: Local webview dev server is not running, HMR will not work. Please run 'npm run dev:webview' before launching the extension to enable HMR. Using bundled assets.",
 			)
 
 			return this.getHtmlContent(webview)
@@ -454,7 +454,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 					<meta http-equiv="Content-Security-Policy" content="${csp.join("; ")}">
 					<link rel="stylesheet" type="text/css" href="${stylesUri}">
 					<link href="${codiconsUri}" rel="stylesheet" />
-					<title>Cline</title>
+					<title>Compass</title>
 				</head>
 				<body>
 					<div id="root"></div>
@@ -1331,10 +1331,10 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			}
 
 			await this.postStateToWebview()
-			vscode.window.showInformationMessage("Successfully logged in to Cline")
+			vscode.window.showInformationMessage("Successfully logged in to Compass")
 		} catch (error) {
 			console.error("Failed to handle auth callback:", error)
-			vscode.window.showErrorMessage("Failed to log in to Cline")
+			vscode.window.showErrorMessage("Failed to log in to Compass")
 			// Even on login failure, we preserve any existing tokens
 			// Only clear tokens on explicit logout
 		}

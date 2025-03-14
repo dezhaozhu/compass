@@ -263,7 +263,7 @@ const BrowserSessionRow = memo((props: BrowserSessionRowProps) => {
 						}}></span>
 				)}
 				<span style={{ fontWeight: "bold" }}>
-					<>{isAutoApproved ? "Cline is using the browser:" : "Cline wants to use the browser:"}</>
+					<>{isAutoApproved ? "Compass is using the browser:" : "Compass wants to use the browser:"}</>
 				</span>
 			</div>
 			<div

@@ -42,7 +42,7 @@ export async function extractExelFile(filePath: string): Promise<string> {
 					raw: false,
 				}) as any[]
 				const filteredData = sheetData.filter((row) => Array.isArray(row) && row.some((cell) => cell !== ""))
-				allSheetsData[sheetName] = filteredData
+				allSheetsData[sheetName] = filteredData.slice(0, 30)
 			}
 			return JSON.stringify(allSheetsData)
 		default:
