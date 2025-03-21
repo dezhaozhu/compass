@@ -88,6 +88,32 @@ Your file content here
 </content>
 </write_to_file>
 
+## write_excel
+Description: Request to write content to a excel file at the specified path. If the file exists, only the corresponding columns will be overwritten with the provided content.
+Parameters:
+- path: (required) The path of the excel file to write to (relative to the current working directory ${cwd.toPosix()})
+- content: (required) A JSON object containing the tool's input parameters. Please following this exact format:
+  {
+    "column name": "[The content to write to the excel file]"
+  }
+  Critical rules:
+  1. Column name must be a valid string.
+  2. Content must be a valid PYTHON list.
+  3. If you need to write multiple columns to excel, add them according to the corresponding formats. For example:
+    {
+      "column name 1": "[The content 1 to write to the excel file]",
+      "column name 2": "[The content 2 to write to the excel file]",
+      ...
+    }
+  4. Write exactly what content enter, do not repeat the execution.
+Usage:
+<write_excel>
+<path>File path here</path>
+<content>
+Your file content here
+</content>
+</write_excel>
+
 ## replace_in_file
 Description: Request to replace sections of content in an existing file using SEARCH/REPLACE blocks that define exact changes to specific parts of the file. This tool should be used when you need to make targeted changes to specific parts of a file.
 Parameters:

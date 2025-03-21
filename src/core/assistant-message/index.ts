@@ -23,6 +23,7 @@ export const toolUseNames = [
 	"plan_mode_response",
 	"attempt_completion",
 	"read_excel",
+	"write_excel",
 	"capture_user_preferences",
 ] as const
 
@@ -80,6 +81,11 @@ export interface WriteToFileToolUse extends ToolUse {
 export interface ReadExcelToolUse extends ToolUse {
 	name: "read_excel"
 	params: Partial<Pick<Record<ToolParamName, string>, "path">>
+}
+
+export interface WriteExcelToolUse extends ToolUse {
+	name: "write_excel"
+	params: Partial<Pick<Record<ToolParamName, string>, "path" | "content">>
 }
 
 export interface ReplaceInFileToolUse extends ToolUse {

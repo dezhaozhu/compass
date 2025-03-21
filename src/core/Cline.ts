@@ -15,6 +15,7 @@ import { DIFF_VIEW_URI_SCHEME, DiffViewProvider } from "../integrations/editor/D
 import { formatContentBlockToMarkdown } from "../integrations/misc/export-markdown"
 import { extractTextFromFile } from "../integrations/misc/extract-text"
 import { extractExelFile } from "../integrations/misc/extract-excel"
+import { writeExcelFile } from "../integrations/misc/write-excel"
 import { captureUserPreferences } from "../integrations/misc/capture-user-preferences"
 import { showSystemNotification } from "../integrations/notifications"
 import { TerminalManager } from "../integrations/terminal/TerminalManager"
@@ -1243,6 +1244,7 @@ export class Cline {
 			switch (toolName) {
 				case "read_file":
 				case "read_excel":
+				case "write_excel":
 				case "capture_user_preferences":
 				case "list_files":
 				case "list_code_definition_names":
@@ -1530,6 +1532,8 @@ export class Cline {
 						case "read_file":
 							return `[${block.name} for '${block.params.path}']`
 						case "read_excel":
+							return `[${block.name} for '${block.params.path}']`
+						case "write_excel":
 							return `[${block.name} for '${block.params.path}']`
 						case "capture_user_preferences":
 							return `[${block.name} for '${block.params.path}']`
@@ -1958,6 +1962,138 @@ export class Cline {
 							}
 						} catch (error) {
 							await handleError("writing file", error)
+							await this.diffViewProvider.revertChanges()
+							await this.diffViewProvider.reset()
+
+							break
+						}
+					}
+					case "write_excel": {
+						const relPath: string | undefined = block.params.path
+						let content: string | undefined = block.params.content
+						if (!relPath || !content) {
+							// checking for content/diff ensures relPath is complete
+							// wait so we can determine if it's a new file or editing an existing file
+							break
+						}
+
+						// Check if file exists using cached map or fs.access
+						let fileExists: boolean
+						const absolutePath = path.resolve(cwd, relPath)
+						fileExists = await fileExistsAtPath(absolutePath)
+
+						try {
+
+							if (content) {
+								console.log(content)
+								writeExcelFile(absolutePath,content)
+							} else {
+								// can't happen, since we already checked for content/diff above. but need to do this for type error
+								break
+							}
+
+							const sharedMessageProps: ClineSayTool = {
+								tool: fileExists ? "editedExistingFile" : "newFileCreated",
+								path: getReadablePath(cwd, removeClosingTag("path", relPath)),
+								content: content,
+							}
+
+							if (block.partial) {
+								// update gui message
+								const partialMessage = JSON.stringify(sharedMessageProps)
+								if (this.shouldAutoApproveTool(block.name)) {
+									this.removeLastPartialMessageIfExistsWithType("ask", "tool") // in case the user changes auto-approval settings mid stream
+									await this.say("tool", partialMessage, undefined, block.partial)
+								} else {
+									this.removeLastPartialMessageIfExistsWithType("say", "tool")
+									await this.ask("tool", partialMessage, block.partial).catch(() => {})
+								}
+								break
+							} else {
+								if (block.name === "write_excel" && !content) {
+									this.consecutiveMistakeCount++
+									pushToolResult(await this.sayAndCreateMissingParamError("write_excel", "content"))
+									await this.diffViewProvider.reset()
+									break
+								}
+
+								this.consecutiveMistakeCount = 0
+
+								const completeMessage = JSON.stringify({
+									...sharedMessageProps,
+									content: content,
+									// ? formatResponse.createPrettyPatch(
+									// 		relPath,
+									// 		this.diffViewProvider.originalContent,
+									// 		newContent,
+									// 	)
+									// : undefined,
+								} satisfies ClineSayTool)
+
+								if (this.shouldAutoApproveTool(block.name)) {
+									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+									await this.say("tool", completeMessage, undefined, false)
+									this.consecutiveAutoApprovedRequestsCount++
+									telemetryService.captureToolUsage(this.taskId, block.name, true, true)
+
+									// we need an artificial delay to let the diagnostics catch up to the changes
+									await delay(3_500)
+								} else {
+									// If auto-approval is enabled but this tool wasn't auto-approved, send notification
+									showNotificationForApprovalIfAutoApprovalEnabled(
+										`Compass wants to "edit" ${path.basename(relPath)}`,
+									)
+									this.removeLastPartialMessageIfExistsWithType("say", "tool")
+
+									// Need a more customized tool response for file edits to highlight the fact that the file was not updated (particularly important for deepseek)
+									let didApprove = true
+									const { response, text, images } = await this.ask("tool", completeMessage, false)
+									if (response !== "yesButtonClicked") {
+										// User either sent a message or pressed reject button
+										// TODO: add similar context for other tool denial responses, to emphasize ie that a command was not run
+										const fileDeniedNote = "The file was not updated, and maintains its original contents."
+										pushToolResult(`The user denied this operation. ${fileDeniedNote}`)
+										if (text || images?.length) {
+											pushAdditionalToolFeedback(text, images)
+											await this.say("user_feedback", text, images)
+										}
+										this.didRejectTool = true
+										didApprove = false
+										telemetryService.captureToolUsage(this.taskId, block.name, false, false)
+									} else {
+										// User hit the approve button, and may have provided feedback
+										if (text || images?.length) {
+											pushAdditionalToolFeedback(text, images)
+											await this.say("user_feedback", text, images)
+										}
+										telemetryService.captureToolUsage(this.taskId, block.name, false, true)
+									}
+
+									// if (!didApprove) {
+									// 	await this.diffViewProvider.revertChanges()
+									// 	break
+									// }
+								}
+
+								pushToolResult(
+									`The content was successfully saved to ${relPath.toPosix()}.\n\n` +
+										`Here is the full, updated content of the excel file that was saved:\n\n` +
+										`<final_file_content path="${relPath.toPosix()}">\n${content}\n</final_file_content>\n\n` +
+										`IMPORTANT: For any future changes to this excel file, use the final_file_content shown above as your reference. This content reflects the current state of the excel file, including any auto-formatting (e.g., if you used single quotes but the formatter converted them to double quotes). Always base your SEARCH/REPLACE operations on this final version to ensure accuracy.\n\n`,
+								)
+
+								if (!fileExists) {
+									this.providerRef.deref()?.workspaceTracker?.populateFilePaths()
+								}
+
+								await this.diffViewProvider.reset()
+
+								await this.saveCheckpoint()
+
+								break
+							}
+						} catch (error) {
+							await handleError("writing excel file", error)
 							await this.diffViewProvider.revertChanges()
 							await this.diffViewProvider.reset()
 
