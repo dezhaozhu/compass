@@ -1983,10 +1983,9 @@ export class Cline {
 						fileExists = await fileExistsAtPath(absolutePath)
 
 						try {
-
 							if (content) {
 								console.log(content)
-								writeExcelFile(absolutePath,content)
+								writeExcelFile(absolutePath, content)
 							} else {
 								// can't happen, since we already checked for content/diff above. but need to do this for type error
 								break
