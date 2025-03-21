@@ -2,6 +2,10 @@ from typing import List
 from datetime import timedelta
 import pandas as pd
 import re
+import sys
+import argparse
+import json
+import os
 
 
 def extract_letter_number_code(text):
@@ -28,7 +32,25 @@ def etl_data(file_path):
     return df_etl
 
 
-class ExcelToolkit():
+def get_unique_filename(base_path, filename):
+    # 获取文件名和扩展名
+    name, ext = os.path.splitext(filename)
+    counter = 1
+    
+    # 构建完整路径
+    directory = os.path.dirname(args.file_path)  # 获取上级目录
+    full_path = os.path.join(directory, filename)
+    
+    # 如果文件已存在，添加(1)、(2)等后缀
+    while os.path.exists(full_path):
+        new_filename = f"{name}({counter}){ext}"
+        full_path = os.path.join(directory, new_filename)
+        counter += 1
+    
+    return full_path
+
+
+class guolu_opt():
     def __init__(self):
         self.manufacturing_ability={
         "上锅": {
@@ -145,3 +167,33 @@ class ExcelToolkit():
                 except (ValueError, TypeError):
                     continue
         return df
+
+
+if __name__ == "__main__":
+    # 确保 stdout 使用 UTF-8 编码
+    if sys.stdout.encoding != "utf-8":
+        sys.stdout.reconfigure(encoding="utf-8")
+
+    parser = argparse.ArgumentParser(
+        description="Boiler plant production scheduling optimization"
+    )
+    parser.add_argument(
+        "--file_path", type=str, required=True, help="Path to the Excel file"
+    )
+    args = parser.parse_args()
+
+    guolu_opt = guolu_opt()
+    result_df = guolu_opt.process_sheet(args.file_path)
+
+    # 将 result_dict 转换为 json 字符串
+    # result_dict_json = json.dumps(result_dict, indent=4, ensure_ascii=False)
+    # print(result_dict_json)
+    # result_df.to_excel('result.xlsx', index=False)
+
+    try:
+        # 尝试保存文件
+        output_path = get_unique_filename(os.path.dirname(args.file_path), 'opt_result.xlsx')
+        result_df.to_excel(output_path, index=False)
+        print(f"锅炉排程优化结果已保存到: {output_path}")
+    except Exception as e:
+        print(f"保存文件时出错: {str(e)}")
