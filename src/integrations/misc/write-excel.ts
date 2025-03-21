@@ -81,7 +81,12 @@ export async function writeExcelFile(filePath: string, columnData: string, sheet
 				const col = worksheet.columns.find((c: Partial<ExcelJS.Column>) => c.header === columnName)
 				if (col) {
 					// console.log(`列 ${columnName} 在文件 ${filePath} 中已存在，跳过整个文件的写入`)
-					return // 直接返回，完全跳过写入操作
+					// return // 直接返回，完全跳过写入操作
+					// 写入数据
+					const values = parsedData[columnName]
+					values.forEach((value, index) => {
+						worksheet.getCell(index + 2, col.number).value = value
+					})
 				} else {
 					columnNames.forEach((columnName) => {
 						// 添加新列
@@ -100,7 +105,7 @@ export async function writeExcelFile(filePath: string, columnData: string, sheet
 
 			// 保存文件
 			await workbook.xlsx.writeFile(filePath)
-			console.log(`成功将数据写入 ${filePath} 的列`)
+			console.log(`成功将数据写入 ${filePath}`)
 			break
 		default:
 			throw new Error(`Cannot write excel for file type: ${fileExtension}`)
