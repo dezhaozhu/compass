@@ -164,6 +164,7 @@ export interface ClineSayTool {
 		| "newFileCreated"
 		| "readFile"
 		| "readExcel"
+		| "writeExcel"
 		| "listFilesTopLevel"
 		| "listFilesRecursive"
 		| "listCodeDefinitionNames"

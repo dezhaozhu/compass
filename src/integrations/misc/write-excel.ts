@@ -28,7 +28,7 @@ export function parseColumnData(input: string | undefined) {
 		console.error("写入Excel的数据格式不正确，应为{列名: 数组值}格式", parsed)
 		return undefined
 	} catch (error) {
-		console.error("解析写入Excel的数据时出错:", error)
+		// console.error("解析写入Excel的数据时出错:", error)
 		return undefined
 	}
 }
@@ -49,47 +49,54 @@ export async function writeExcelFile(filePath: string, columnData: string, sheet
 	// 解析或验证输入数据
 	let parsedData = parseColumnData(columnData)
 	if (!parsedData) {
-		throw new Error("未定义的写入数据")
+		return
+		// throw new Error("未定义的写入数据")
 		// parsedData = {};
 	}
 
 	const fileExtension = path.extname(filePath).toLowerCase()
 	switch (fileExtension) {
-		case ".xlsx":
-		case ".xls":
-		case ".xlsm":
-		case ".xlsb":
 		case ".csv":
+		case ".xls":
+		case ".xlsx":
 			// 读取 Excel 文件
 			const workbook = new ExcelJS.Workbook()
 			let worksheet: ExcelJS.Worksheet | undefined
 
 			// 尝试读取现有文件
-			await workbook.xlsx.readFile(filePath)
-			worksheet = workbook.getWorksheet(1)
-			if (!worksheet) {
-				worksheet = workbook.addWorksheet("Sheet1")
+			try {
+				await workbook.xlsx.readFile(filePath)
+				worksheet = workbook.getWorksheet(1)
+				if (!worksheet) {
+					worksheet = workbook.addWorksheet("Sheet1")
+				}
+			} catch (error) {
+				return
 			}
 
 			const columnNames = Object.keys(parsedData)
 
-			columnNames.forEach((columnName) => {
-				// 查找列名对应的列
-				let col = worksheet.columns.find((c: Partial<ExcelJS.Column>) => c.header === columnName)
+			// 首先检查是否有任何列已存在
+			for (const columnName of columnNames) {
+				const col = worksheet.columns.find((c: Partial<ExcelJS.Column>) => c.header === columnName)
+				if (col) {
+					// console.log(`列 ${columnName} 在文件 ${filePath} 中已存在，跳过整个文件的写入`)
+					return // 直接返回，完全跳过写入操作
+				} else {
+					columnNames.forEach((columnName) => {
+						// 添加新列
+						const nextCol = worksheet.columns.length + 1
+						worksheet.getColumn(nextCol).header = columnName
+						const col = worksheet.getColumn(nextCol)
 
-				if (!col) {
-					// 如果列不存在，添加新列
-					const nextCol = worksheet.columns.length + 1
-					worksheet.getColumn(nextCol).header = columnName
-					col = worksheet.getColumn(nextCol)
+						// 写入数据
+						const values = parsedData[columnName]
+						values.forEach((value, index) => {
+							worksheet.getCell(index + 2, col.number).value = value
+						})
+					})
 				}
-
-				// 写入数据
-				const values = parsedData[columnName]
-				values.forEach((value, index) => {
-					worksheet.getCell(index + 2, col!.number).value = value
-				})
-			})
+			}
 
 			// 保存文件
 			await workbook.xlsx.writeFile(filePath)
