@@ -170,6 +170,7 @@ export interface ClineSayTool {
 		| "listCodeDefinitionNames"
 		| "searchFiles"
 		| "captureUserPreferences"
+		| "guolu_opt"
 	path?: string
 	diff?: string
 	content?: string

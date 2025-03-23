@@ -58,13 +58,22 @@ Usage:
 </read_excel>
 
 ## capture_user_preferences
-Description: 分析某个排程文件中人工偏好的信息，当用户给定某个xlsx 文件时，使用该工具直接分析指定文件中人工偏好的信息，并返回一个json 对象
+Description: 分析某个排程文件中人工偏好的信息，当用户给定某个xlsx文件时，使用该工具直接分析指定文件中人工偏好的信息，并返回一个json对象
 Parameters:
 - path: (required) The path of the file to capture the user's preferences from (relative to the current working directory ${cwd.toPosix()})
 Usage:
 <capture_user_preferences>
 <path>File path here</path>
 </capture_user_preferences>
+
+## guolu_opt
+Description: 该工具可根据用户提供的xlsx文件信息，优化求解锅炉厂排程问题，需要有填好的预估单位列信息，并将求解结果保存至同目录下命名为opt_result.xlsx，若工具调用不成功则直接提示用户更换文件，不再重复尝试
+Parameters:
+- path: (required) The path of the excel file to optimize scheduling problems from (relative to the current working directory ${cwd.toPosix()})
+Usage:
+<guolu_opt>
+<path>File path here</path>
+</guolu_opt>
 
 ## read_file
 Description: Request to read the contents of a file at the specified path. Use this when you need to examine the contents of an existing file you do not know the contents of, for example to analyze code, review text files, or extract information from configuration files. Automatically extracts raw text from PDF and DOCX files. May not be suitable for other types of binary files, as it returns the raw content as a string.

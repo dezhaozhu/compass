@@ -6,6 +6,7 @@ import sys
 import argparse
 import json
 import os
+import math
 
 
 def extract_letter_number_code(text):
@@ -27,7 +28,15 @@ def extract_letter_number_code(text):
 def etl_data(file_path):
     df=pd.read_excel(file_path)
     df_etl=df[['WBS元素','项目名称','部件号','部件名称','实际投料日期','计划完工时间','预估单位','重量吨','数量支','环缝','中频弯','冷弯','技术需求','参照炉型','备注']]
-    df_etl['炉型']=df_etl['WBS元素'].apply(extract_letter_number_code)
+    # 重命名列
+    df_etl = df_etl.rename(columns={
+        '环缝':'连接管根数',
+        '中频弯': '线弯',
+        '冷弯': '单机弯'
+    })
+    # df_etl['炉型']=df_etl['WBS元素'].apply(extract_letter_number_code)
+    # df_etl.loc[:, '炉型'] = df_etl['WBS元素'].apply(extract_letter_number_code)
+    df_etl = df_etl.assign(炉型=df_etl['WBS元素'].apply(extract_letter_number_code))
     df_etl=df_etl.sort_values(by=['WBS元素','实际投料日期'],ascending=[True,True])
     return df_etl
 
@@ -38,7 +47,7 @@ def get_unique_filename(base_path, filename):
     counter = 1
     
     # 构建完整路径
-    directory = os.path.dirname(args.file_path)  # 获取上级目录
+    directory = os.path.dirname(base_path)  # 获取上级目录
     full_path = os.path.join(directory, filename)
     
     # 如果文件已存在，添加(1)、(2)等后缀
@@ -128,11 +137,11 @@ class guolu_opt():
         #     if wbs in human_preference:
         #         df.at[index, 'AI推算分包单位'] = human_preference[wbs]
         previous_subcontractor = None
-
+        df = df.reset_index(drop=True)
         for index, row in df.iterrows():
             subcontractor = row['预估单位']
             if subcontractor and subcontractor in self.manufacturing_ability:
-                first_key = self.manufacturing_ability[subcontractor] # 简化了任务
+                first_key = next(iter(self.manufacturing_ability[subcontractor])) # 简化了任务
 
                 line_bend_ability = self.manufacturing_ability[subcontractor][first_key]['线弯']
                 single_bend_ability = self.manufacturing_ability[subcontractor][first_key]['单机弯']
@@ -152,8 +161,10 @@ class guolu_opt():
                     # 如果分包商不同或是第一次处理
                     if subcontractor != previous_subcontractor:
                         base_date = row['实际投料日期']
+                    else:
+                        base_date = df.at[index-1, 'AI推算完工时间']
 
-                    completion_date = base_date + timedelta(days=extra_days)
+                    completion_date = base_date + timedelta(days=math.ceil(extra_days))
 
                     df.at[index, 'AI推算开始时间'] = base_date
                     df.at[index, 'AI推算完工时间'] = completion_date
@@ -178,7 +189,7 @@ if __name__ == "__main__":
         description="Boiler plant production scheduling optimization"
     )
     parser.add_argument(
-        "--file_path", type=str, required=True, help="Path to the Excel file"
+        "--file_path", type=str, required=True, help="Path to the opt Excel file"
     )
     args = parser.parse_args()
 
@@ -192,7 +203,7 @@ if __name__ == "__main__":
 
     try:
         # 尝试保存文件
-        output_path = get_unique_filename(os.path.dirname(args.file_path), 'opt_result.xlsx')
+        output_path = get_unique_filename(args.file_path, 'opt_result.xlsx')
         result_df.to_excel(output_path, index=False)
         print(f"锅炉排程优化结果已保存到: {output_path}")
     except Exception as e:

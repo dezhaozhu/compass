@@ -14,6 +14,7 @@ export async function guoluOpt(filePath: string): Promise<string> {
 				} else {
 					// data 就是 python 脚本打印的 json 字符串
 					console.log(data)
+					// console.log(`锅炉排程优化完成`)
 					// if (data) {
 					// 	try {
 					// 		// 先解析 Python 输出的 JSON 字符串为 JavaScript 对象

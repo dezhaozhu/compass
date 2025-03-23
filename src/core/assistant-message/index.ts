@@ -25,6 +25,7 @@ export const toolUseNames = [
 	"read_excel",
 	"write_excel",
 	"capture_user_preferences",
+	"guolu_opt",
 ] as const
 
 // Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)

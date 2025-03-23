@@ -65,6 +65,7 @@ import { ClineHandler } from "../api/providers/cline"
 import { ClineProvider, GlobalFileNames } from "./webview/ClineProvider"
 import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay, LanguageKey } from "../shared/Languages"
 import { telemetryService } from "../services/telemetry/TelemetryService"
+import { guoluOpt } from "../integrations/misc/guolu_opt"
 
 const cwd = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop") // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
 
@@ -1246,6 +1247,7 @@ export class Cline {
 				case "read_excel":
 				case "write_excel":
 				case "capture_user_preferences":
+				case "guolu_opt":
 				case "list_files":
 				case "list_code_definition_names":
 				case "search_files":
@@ -1536,6 +1538,8 @@ export class Cline {
 						case "write_excel":
 							return `[${block.name} for '${block.params.path}']`
 						case "capture_user_preferences":
+							return `[${block.name} for '${block.params.path}']`
+						case "guolu_opt":
 							return `[${block.name} for '${block.params.path}']`
 						case "write_to_file":
 							return `[${block.name} for '${block.params.path}']`
@@ -2250,6 +2254,72 @@ export class Cline {
 								}
 								// now execute the tool like normal
 								const content = await captureUserPreferences(absolutePath)
+								pushToolResult(content)
+
+								break
+							}
+						} catch (error) {
+							await handleError("capturing user preferences", error)
+
+							break
+						}
+					}
+					case "guolu_opt": {
+						const relPath: string | undefined = block.params.path
+						const sharedMessageProps: ClineSayTool = {
+							tool: "guolu_opt",
+							path: getReadablePath(cwd, removeClosingTag("path", relPath)),
+						}
+						try {
+							if (block.partial) {
+								const partialMessage = JSON.stringify({
+									...sharedMessageProps,
+									content: undefined,
+								} satisfies ClineSayTool)
+								if (this.shouldAutoApproveTool(block.name)) {
+									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+									await this.say("tool", partialMessage, undefined, block.partial)
+								} else {
+									this.removeLastPartialMessageIfExistsWithType("say", "tool")
+									await this.ask("tool", partialMessage, block.partial).catch(() => {})
+								}
+								break
+							} else {
+								if (!relPath) {
+									this.consecutiveMistakeCount++
+									pushToolResult(await this.sayAndCreateMissingParamError("guolu_opt", "path"))
+									break
+								}
+
+								const accessAllowed = this.clineIgnoreController.validateAccess(relPath)
+								if (!accessAllowed) {
+									await this.say("clineignore_error", relPath)
+									pushToolResult(formatResponse.toolError(formatResponse.clineIgnoreError(relPath)))
+									break
+								}
+
+								this.consecutiveMistakeCount = 0
+								const absolutePath = path.resolve(cwd, relPath)
+								const completeMessage = JSON.stringify({
+									...sharedMessageProps,
+									content: absolutePath,
+								} satisfies ClineSayTool)
+								if (this.shouldAutoApproveTool(block.name)) {
+									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+									await this.say("tool", completeMessage, undefined, false) // need to be sending partialValue bool, since undefined has its own purpose in that the message is treated neither as a partial or completion of a partial, but as a single complete message
+									this.consecutiveAutoApprovedRequestsCount++
+								} else {
+									showNotificationForApprovalIfAutoApprovalEnabled(
+										`Cline wants to read ${path.basename(absolutePath)}`,
+									)
+									this.removeLastPartialMessageIfExistsWithType("say", "tool")
+									const didApprove = await askApproval("tool", completeMessage)
+									if (!didApprove) {
+										break
+									}
+								}
+								// now execute the tool like normal
+								const content = await guoluOpt(absolutePath)
 								pushToolResult(content)
 
 								break
