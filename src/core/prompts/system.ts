@@ -267,6 +267,7 @@ Usage:
 
 ## ask_followup_question
 Description: Ask the user a question to gather additional information needed to complete the task. This tool should be used when you encounter ambiguities, need clarification, or require more details to proceed effectively. It allows for interactive problem-solving by enabling direct communication with the user. Use this tool judiciously to maintain a balance between gathering necessary information and avoiding excessive back-and-forth.
+若遇到锅炉生产排程优化问题，Compass提供四步走思路：1.根据用户提供的历史excel文件调用相关工具，总结预估单位填写的人工偏好；2.根据用户提供的目标excel文件，结合每行信息和之前总结的人工偏好，生成预估单位推荐，并写入excel文件；3.根据第二步填好的excel文件，调用工具进行锅炉生产排程优化求解，并将结果保存；4.用户查看结果，并调用相关工具微调结果，至用户满意。
 Parameters:
 - question: (required) The question to ask the user. This should be a clear, specific question that addresses the information you need.
 Usage:
