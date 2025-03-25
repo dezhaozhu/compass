@@ -33,19 +33,42 @@ export async function extractExelFile(filePath: string): Promise<string> {
 		case ".csv":
 			const workbook = XLSX.readFile(filePath)
 			const sheetNames = workbook.SheetNames
-			const allSheetsData: Record<string, any[]> = {}
+
+			// const allSheetsData: Record<string, any[]> = {}
+			// for (const sheetName of sheetNames) {
+			// 	const worksheet = workbook.Sheets[sheetName]
+			// 	const sheetData = XLSX.utils.sheet_to_json(worksheet, {
+			// 		header: 1,
+			// 		defval: "",
+			// 		raw: false,
+			// 	}) as any[]
+			// 	const filteredData = sheetData.filter((row) => Array.isArray(row) && row.some((cell) => cell !== ""))
+			// 	allSheetsData[sheetName] = filteredData
+			// 	// const limitedData = filteredData.length > 20 ? filteredData.slice(0, 21) : filteredData
+			// 	// allSheetsData[sheetName] = limitedData
+			// }
+			// return JSON.stringify(allSheetsData)
+
+			let csvOutput = ""
+			// 处理每个工作表
 			for (const sheetName of sheetNames) {
+				// 添加工作表名称作为分隔
+				csvOutput += `\n### Sheet: ${sheetName}\n`
+
 				const worksheet = workbook.Sheets[sheetName]
-				const sheetData = XLSX.utils.sheet_to_json(worksheet, {
-					header: 1,
-					defval: "",
-					raw: false,
-				}) as any[]
-				const filteredData = sheetData.filter((row) => Array.isArray(row) && row.some((cell) => cell !== ""))
-				const limitedData = filteredData.length > 20 ? filteredData.slice(0, 21) : filteredData
-				allSheetsData[sheetName] = limitedData
+				// 直接转换为CSV格式
+				const csvData = XLSX.utils.sheet_to_csv(worksheet, {
+					blankrows: false, // 跳过空行
+					strip: true, // 去除空格
+				})
+
+				// 限制行数
+				const rows = csvData.split("\n").filter((row) => row.trim())
+				csvOutput += rows.join("\n")
+				// const limitedRows = rows.slice(0, 20)  // 只取前20行
+				// csvOutput += limitedRows.join('\n')
 			}
-			return JSON.stringify(allSheetsData)
+			return csvOutput.trim()
 		default:
 			throw new Error(`Cannot read excel for file type: ${fileExtension}`)
 	}
