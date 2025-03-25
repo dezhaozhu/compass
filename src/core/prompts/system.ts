@@ -49,7 +49,7 @@ Usage:
 </execute_command>
 
 ## read_excel
-Description: Request to extract detailed cell information from an excel file at the specified path. Use this when you need to examine the contents of an existing excel file you do not know the contents of, for example to analyze data, statistical data, review information, or summarizing preferences from excel files. Automatically extracts raw data from Excel files. May not be suitable for other types of binary files, as it returns the raw content as json. Note that the maximum number of lines to be read is 20.
+Description: Request to extract detailed cell information from an excel file at the specified path. Use this when you need to examine the contents of an existing excel file you do not know the contents of, for example to analyze data, statistical data, review information, or summarizing preferences from excel files. Automatically extracts raw data from Excel files. May not be suitable for other types of binary files, as it returns the raw content as csv output.
 Parameters:
 - path: (required) The path of the excel file to read (relative to the current working directory ${cwd.toPosix()})
 Usage:
