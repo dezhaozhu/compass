@@ -66,6 +66,33 @@ Usage:
 <path>File path here</path>
 </capture_user_preferences>
 
+## adjust_jsp
+Description: 这是一个调整排程工具，可以根据提供的排程文件和调整要求来对排程做相应的调制，做完调整之后，会发送调整成功或者失败的消息
+Parameters:
+- path: (required) The path of the excel file to optimize scheduling problems from (relative to the current working directory ${cwd.toPosix()})
+- content: (required) A JSON object containing the tool's input parameters, 对于其中的时间戳，如果没有指定到小时，请填写00:00:00。 请按照这个格式填写：
+  [{
+    "product_id": "[The product id]",
+    "target_date": "[The target date]",
+    "target_factory": "[The target factory]"
+  }]
+Usage:
+<adjust_jsp>
+<path>File path here</path>
+<content>
+  [{
+    "product_id": "Z-1400F15-260-740(7)",
+    "target_date": "2025-03-25 00:00:00",
+    "target_factory": "绿叶"
+  },
+  {
+    "product_id": "Z-1400F15-260-740",
+    "target_date": "2025-03-20 00:00:00",
+    "target_factory": "上锅"
+  }]
+</content>
+</adjust_jsp>
+
 ## guolu_opt
 Description: 该工具可根据用户提供的xlsx文件信息，优化求解锅炉厂排程问题，需要有填好的预估单位列信息，并将求解结果保存至同目录下命名为opt_result.xlsx，若工具调用不成功则直接提示用户更换文件，不再重复尝试
 Parameters:

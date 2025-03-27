@@ -25,6 +25,7 @@ export const toolUseNames = [
 	"read_excel",
 	"write_excel",
 	"capture_user_preferences",
+	"adjust_jsp",
 	"guolu_opt",
 ] as const
 
@@ -61,6 +62,11 @@ export interface ToolUse {
 	// params is a partial record, allowing only some or none of the possible parameters to be used
 	params: Partial<Record<ToolParamName, string>>
 	partial: boolean
+}
+
+export interface AdjustJspToolUse extends ToolUse {
+	name: "adjust_jsp"
+	params: Partial<Pick<Record<ToolParamName, string>, "path" | "content">>
 }
 
 export interface ExecuteCommandToolUse extends ToolUse {

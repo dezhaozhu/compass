@@ -17,6 +17,7 @@ import { extractTextFromFile } from "../integrations/misc/extract-text"
 import { extractExelFile } from "../integrations/misc/extract-excel"
 import { writeExcelFile } from "../integrations/misc/write-excel"
 import { captureUserPreferences } from "../integrations/misc/capture-user-preferences"
+import { adjustJsp } from "../integrations/misc/adjust_jsp"
 import { showSystemNotification } from "../integrations/notifications"
 import { TerminalManager } from "../integrations/terminal/TerminalManager"
 import { BrowserSession } from "../services/browser/BrowserSession"
@@ -1247,6 +1248,7 @@ export class Cline {
 				case "read_excel":
 				case "write_excel":
 				case "capture_user_preferences":
+				case "adjust_jsp":
 				case "guolu_opt":
 				case "list_files":
 				case "list_code_definition_names":
@@ -1538,6 +1540,8 @@ export class Cline {
 						case "write_excel":
 							return `[${block.name} for '${block.params.path}']`
 						case "capture_user_preferences":
+							return `[${block.name} for '${block.params.path}']`
+						case "adjust_jsp":
 							return `[${block.name} for '${block.params.path}']`
 						case "guolu_opt":
 							return `[${block.name} for '${block.params.path}']`
@@ -2260,6 +2264,82 @@ export class Cline {
 							}
 						} catch (error) {
 							await handleError("capturing user preferences", error)
+
+							break
+						}
+					}
+					case "adjust_jsp": {
+						const relPath: string | undefined = block.params.path
+						let content: string | undefined = block.params.content
+						//console.log("cline.js adjust_jsp 0", relPath, content)
+						if (!relPath || !content) {
+							// checking for content/diff ensures relPath is complete
+							// wait so we can determine if it's a new file or editing an existing file
+							break
+						}
+						const sharedMessageProps: ClineSayTool = {
+							tool: "adjustJsp",
+							path: getReadablePath(cwd, removeClosingTag("path", relPath)),
+							content: content,
+						}
+						try {
+							if (block.partial) {
+								const partialMessage = JSON.stringify({
+									...sharedMessageProps,
+									content: undefined,
+								} satisfies ClineSayTool)
+								if (this.shouldAutoApproveTool(block.name)) {
+									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+									await this.say("tool", partialMessage, undefined, block.partial)
+								} else {
+									this.removeLastPartialMessageIfExistsWithType("say", "tool")
+									await this.ask("tool", partialMessage, block.partial).catch(() => {})
+								}
+								break
+							} else {
+								if (!relPath) {
+									this.consecutiveMistakeCount++
+									pushToolResult(await this.sayAndCreateMissingParamError("adjust_jsp", "path", "content"))
+									break
+								}
+
+								const accessAllowed = this.clineIgnoreController.validateAccess(relPath)
+								if (!accessAllowed) {
+									await this.say("clineignore_error", relPath)
+									pushToolResult(formatResponse.toolError(formatResponse.clineIgnoreError(relPath)))
+									break
+								}
+
+								this.consecutiveMistakeCount = 0
+								const absolutePath = path.resolve(cwd, relPath)
+								const completeMessage = JSON.stringify({
+									...sharedMessageProps,
+									content: absolutePath,
+								} satisfies ClineSayTool)
+								if (this.shouldAutoApproveTool(block.name)) {
+									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+									await this.say("tool", completeMessage, undefined, false) // need to be sending partialValue bool, since undefined has its own purpose in that the message is treated neither as a partial or completion of a partial, but as a single complete message
+									this.consecutiveAutoApprovedRequestsCount++
+								} else {
+									showNotificationForApprovalIfAutoApprovalEnabled(
+										`Cline wants to read ${path.basename(absolutePath)}`,
+									)
+									this.removeLastPartialMessageIfExistsWithType("say", "tool")
+									const didApprove = await askApproval("tool", completeMessage)
+									if (!didApprove) {
+										break
+									}
+								}
+								// now execute the tool like normal
+								//console.log("cline.js adjust_jsp 1", absolutePath, content)
+								const res = await adjustJsp(absolutePath, JSON.parse(content))
+								//console.log("cline.js adjust_jsp 2", res)
+								pushToolResult(res)
+
+								break
+							}
+						} catch (error) {
+							await handleError("adjusting jsp", error)
 
 							break
 						}
