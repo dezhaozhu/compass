@@ -227,7 +227,7 @@ class CheckpointTracker {
 			)
 
 			// Set up git identity (git throws an error if user.name or user.email is not set)
-			await git.addConfig("user.name", "Cline Checkpoint")
+			await git.addConfig("user.name", "Compass Checkpoint")
 			await git.addConfig("user.email", "noreply@example.com")
 
 			await this.addAllFiles(git)

@@ -1,116 +1,163 @@
 import * as path from "path"
-// @ts-ignore-next-line
-import pdf from "pdf-parse/lib/pdf-parse"
-import mammoth from "mammoth"
 import fs from "fs/promises"
-import { isBinaryFile } from "isbinaryfile"
-
 import * as XLSX from "xlsx"
 
-export async function extractExelFile(filePath: string): Promise<string> {
+export interface ChunkData {
+	sheetName: string
+	columnName: string
+	startRow: number
+	endRow: number
+	data: string
+}
+
+export interface SheetInfo {
+	name: string
+	rowCount: number
+	columnCount: number
+	headers: string[]
+}
+
+export interface ExcelLensResult {
+	type: "init" | "chunk" | "complete" | "error"
+	chunkData?: ChunkData
+	fileInfo?: {
+		fileName: string
+		sheets: SheetInfo[]
+	}
+	message?: string
+}
+
+export interface SessionState {
+	currentChunkIndex: number
+	totalChunks: number
+	metadata: {
+		fileName: string
+		sheets: Record<string, SheetInfo>
+	}
+	csvChunks: ChunkData[]
+}
+
+// 会话管理
+const sessions = new Map<string, SessionState>()
+
+// 添加文件类型检查函数
+// function isExcelFile(filePath: string): boolean {
+// 	const ext = path.extname(filePath).toLowerCase()
+// 	return [".xlsx", ".xls", ".xlsm", ".xlsb", ".csv"].includes(ext)
+// }
+
+// 增加文件类型检查和错误处理
+export async function extractExelFile(
+	filePath: string,
+	// options?: {
+	// 	action?: "continue" | "stop"
+	// },
+): Promise<string> {
 	try {
 		await fs.access(filePath)
 	} catch (error) {
 		throw new Error(`File not found: ${filePath}`)
 	}
-	const fileExtension = path.extname(filePath).toLowerCase()
 
-	// switch (fileExtension) {
-	//     case ".xlsx":
-	//         const workbook = await XLSX.readFile(filePath)
-	//         const sheetName = workbook.SheetNames[0]
-	//         const worksheet = workbook.Sheets[sheetName]
-	//         const jsonData = XLSX.utils.sheet_to_json(worksheet)
-	//         return JSON.stringify(jsonData)
-	// 	default:
-	// 		throw new Error(`Cannot read excel for file type: ${fileExtension}`)
+	try {
+		const sessionId = path.resolve(filePath)
+		let session = sessions.get(sessionId)
 
-	switch (fileExtension) {
-		case ".xlsx":
-		case ".xls":
-		case ".xlsm":
-		case ".xlsb":
-		case ".csv":
-			const workbook = XLSX.readFile(filePath)
-			const sheetNames = workbook.SheetNames
+		if (!session) {
+			return await initializeSession(filePath)
+		}
 
-			// const allSheetsData: Record<string, any[]> = {}
-			// for (const sheetName of sheetNames) {
-			// 	const worksheet = workbook.Sheets[sheetName]
-			// 	const sheetData = XLSX.utils.sheet_to_json(worksheet, {
-			// 		header: 1,
-			// 		defval: "",
-			// 		raw: false,
-			// 	}) as any[]
-			// 	const filteredData = sheetData.filter((row) => Array.isArray(row) && row.some((cell) => cell !== ""))
-			// 	allSheetsData[sheetName] = filteredData
-			// 	// const limitedData = filteredData.length > 20 ? filteredData.slice(0, 21) : filteredData
-			// 	// allSheetsData[sheetName] = limitedData
-			// }
-			// return JSON.stringify(allSheetsData)
-
-			let csvOutput = ""
-			// 处理每个工作表
-			for (const sheetName of sheetNames) {
-				// 添加工作表名称作为分隔
-				csvOutput += `\n### Sheet: ${sheetName}\n`
-
-				const worksheet = workbook.Sheets[sheetName]
-				// 直接转换为CSV格式
-				const csvData = XLSX.utils.sheet_to_csv(worksheet, {
-					blankrows: false, // 跳过空行
-					strip: true, // 去除空格
-				})
-
-				// 限制行数
-				const rows = csvData.split("\n").filter((row) => row.trim())
-				csvOutput += rows.join("\n")
-				// const limitedRows = rows.slice(0, 20)  // 只取前20行
-				// csvOutput += limitedRows.join('\n')
-			}
-			return csvOutput.trim()
-		default:
-			throw new Error(`Cannot read excel for file type: ${fileExtension}`)
+		if (session.currentChunkIndex >= session.totalChunks) {
+			sessions.delete(sessionId)
+			return JSON.stringify({
+				type: "complete",
+				message: "excel文件分析完成。",
+			} as ExcelLensResult)
+		} else {
+			return await processNextChunk(sessionId)
+		}
+	} catch (error) {
+		sessions.delete(path.resolve(filePath))
+		return JSON.stringify({
+			type: "error",
+			message: error instanceof Error ? error.message : "excel文件分析失败",
+		} as ExcelLensResult)
 	}
-
-	// switch (fileExtension) {
-	// 	case ".pdf":
-	// 		return extractTextFromPDF(filePath)
-	// 	case ".docx":
-	// 		return extractTextFromDOCX(filePath)
-	// 	case ".ipynb":
-	// 		return extractTextFromIPYNB(filePath)
-	// 	default:
-	// 		const isBinary = await isBinaryFile(filePath).catch(() => false)
-	// 		if (!isBinary) {
-	// 			return await fs.readFile(filePath, "utf8")
-	// 		} else {
-	// 			throw new Error(`Cannot read text for file type: ${fileExtension}`)
-	// 		}
-	// }
 }
 
-// async function extractTextFromPDF(filePath: string): Promise<string> {
-// 	const dataBuffer = await fs.readFile(filePath)
-// 	const data = await pdf(dataBuffer)
-// 	return data.text
-// }
+function determineChunkSize(columnCount: number): number {
+	const targetCellCount = 4000
+	const rowCount = Math.floor(targetCellCount / columnCount)
+	return rowCount
+}
 
-// async function extractTextFromDOCX(filePath: string): Promise<string> {
-// 	const result = await mammoth.extractRawText({ path: filePath })
-// 	return result.value
-// }
+async function initializeSession(filePath: string): Promise<string> {
+	const workbook = XLSX.readFile(filePath)
+	const fileName = path.basename(filePath)
 
-// async function extractTextFromIPYNB(filePath: string): Promise<string> {
-// 	const data = await fs.readFile(filePath, "utf8")
-// 	const notebook = JSON.parse(data)
-// 	let extractedText = ""
+	const session: SessionState = {
+		currentChunkIndex: 0,
+		totalChunks: 0,
+		metadata: {
+			fileName,
+			sheets: {},
+		},
+		csvChunks: [],
+	}
 
-// 	for (const cell of notebook.cells) {
-// 		if ((cell.cell_type === "markdown" || cell.cell_type === "code") && cell.source) {
-// 			extractedText += cell.source.join("\n") + "\n"
-// 		}
-// 	}
+	for (const sheetName of workbook.SheetNames) {
+		const worksheet = workbook.Sheets[sheetName]
 
-// 	return extractedText
-// }
+		// 直接转换为CSV格式
+		const csvData = XLSX.utils.sheet_to_csv(worksheet, {
+			blankrows: false, // 跳过空行
+			strip: true, // 去除空格
+		})
+		const rows = csvData.split("\n").filter((row) => row.trim())
+		const columnCount = rows[0]?.split(",").length || 0 // 获取列数
+		const rowCount = rows.length // 获取行数
+
+		const columnNames = rows[0]?.split(",").map((col) => col.trim()) || []
+		const columnNamesString = `${columnNames.join(",")}` // 添加列名信息
+
+		const chunkSize = determineChunkSize(columnCount)
+
+		for (let startRow = 1; startRow <= rowCount; startRow += chunkSize) {
+			const endRow = Math.min(startRow + chunkSize, rowCount)
+			const selectedRows = rows.slice(startRow, endRow)
+			session.csvChunks.push({
+				sheetName: sheetName,
+				columnName: columnNamesString,
+				startRow: startRow,
+				endRow: endRow,
+				data: selectedRows.join("\n"),
+			})
+		}
+	}
+
+	session.totalChunks = session.csvChunks.length
+	sessions.set(path.resolve(filePath), session)
+
+	if (session.totalChunks === 0) {
+		return JSON.stringify({
+			type: "complete",
+			message: "excel文件没有数据。",
+		} as ExcelLensResult)
+	}
+
+	return await processNextChunk(path.resolve(filePath))
+}
+
+async function processNextChunk(sessionId: string): Promise<string> {
+	const session = sessions.get(sessionId)!
+	const currentChunk = session.csvChunks[session.currentChunkIndex]
+
+	const result: ExcelLensResult = {
+		type: "chunk",
+		chunkData: currentChunk,
+		message: `分析excel中的第 ${session.currentChunkIndex + 1} 个数据块，工作表: ${currentChunk.sheetName}, 行范围: ${currentChunk.startRow}-${currentChunk.endRow})，需继续重复调用当前工具进行分析。`,
+	}
+
+	session.currentChunkIndex++
+	return JSON.stringify(result)
+}

@@ -2138,6 +2138,8 @@ export class Cline {
 					}
 					case "read_excel": {
 						const relPath: string | undefined = block.params.path
+						// const action: string | undefined = block.params.action // 'continue' 或 'stop'
+
 						const sharedMessageProps: ClineSayTool = {
 							tool: "readExcel",
 							path: getReadablePath(cwd, removeClosingTag("path", relPath)),
@@ -2146,7 +2148,7 @@ export class Cline {
 							if (block.partial) {
 								const partialMessage = JSON.stringify({
 									...sharedMessageProps,
-									content: undefined,
+									content: "reading excel ...",
 								} satisfies ClineSayTool)
 								if (this.shouldAutoApproveTool(block.name)) {
 									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
@@ -2180,6 +2182,7 @@ export class Cline {
 									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
 									await this.say("tool", completeMessage, undefined, false) // need to be sending partialValue bool, since undefined has its own purpose in that the message is treated neither as a partial or completion of a partial, but as a single complete message
 									this.consecutiveAutoApprovedRequestsCount++
+									telemetryService.captureToolUsage(this.taskId, block.name, true, true)
 								} else {
 									showNotificationForApprovalIfAutoApprovalEnabled(
 										`Compass wants to read ${path.basename(absolutePath)}`,
@@ -2187,14 +2190,22 @@ export class Cline {
 									this.removeLastPartialMessageIfExistsWithType("say", "tool")
 									const didApprove = await askApproval("tool", completeMessage)
 									if (!didApprove) {
+										telemetryService.captureToolUsage(this.taskId, block.name, false, false)
 										break
 									}
+									telemetryService.captureToolUsage(this.taskId, block.name, false, true)
 								}
-								// now execute the tool like normal
-								const content = await extractExelFile(absolutePath)
-								pushToolResult(content)
 
+								// 执行Excel读取
+								const result = await extractExelFile(absolutePath)
+
+								// 处理结果并返回
+								pushToolResult(result)
 								break
+								// const resultObj = JSON.parse(result);
+								// if (resultObj.type === "complete") {
+								// 	break;
+								// }
 							}
 						} catch (error) {
 							await handleError("reading excel file", error)
@@ -2248,7 +2259,7 @@ export class Cline {
 									this.consecutiveAutoApprovedRequestsCount++
 								} else {
 									showNotificationForApprovalIfAutoApprovalEnabled(
-										`Cline wants to read ${path.basename(absolutePath)}`,
+										`Compass wants to read ${path.basename(absolutePath)}`,
 									)
 									this.removeLastPartialMessageIfExistsWithType("say", "tool")
 									const didApprove = await askApproval("tool", completeMessage)
@@ -2322,7 +2333,7 @@ export class Cline {
 									this.consecutiveAutoApprovedRequestsCount++
 								} else {
 									showNotificationForApprovalIfAutoApprovalEnabled(
-										`Cline wants to read ${path.basename(absolutePath)}`,
+										`Compass wants to read ${path.basename(absolutePath)}`,
 									)
 									this.removeLastPartialMessageIfExistsWithType("say", "tool")
 									const didApprove = await askApproval("tool", completeMessage)
@@ -2390,7 +2401,7 @@ export class Cline {
 									this.consecutiveAutoApprovedRequestsCount++
 								} else {
 									showNotificationForApprovalIfAutoApprovalEnabled(
-										`Cline wants to read ${path.basename(absolutePath)}`,
+										`Compass wants to read ${path.basename(absolutePath)}`,
 									)
 									this.removeLastPartialMessageIfExistsWithType("say", "tool")
 									const didApprove = await askApproval("tool", completeMessage)

@@ -49,16 +49,16 @@ Usage:
 </execute_command>
 
 ## read_excel
-Description: Request to extract detailed cell information from an excel file at the specified path. Use this when you need to examine the contents of an existing excel file you do not know the contents of, for example to analyze data, statistical data, review information, or summarizing preferences from excel files. Automatically extracts raw data from Excel files. May not be suitable for other types of binary files, as it returns the raw content as csv output.
+Description: Request to extract detailed cell information from an excel file at the specified path. Use this when you need to examine the contents of an existing excel file you do not know the contents of, for example to analyze data, statistical data, review information, or summarizing preferences from excel files. May not be suitable for other types of binary files. Tool call need to repeat multiple times, until the type information in the returned json is "complete" or "error", then stop calling the tool and summarize all the information.
 Parameters:
-- path: (required) The path of the excel file to read (relative to the current working directory ${cwd.toPosix()})
+- path: (required) The path of the excel file to read (relative to the current working directory ${cwd.toPosix()}).
 Usage:
 <read_excel>
 <path>File path here</path>
 </read_excel>
 
 ## capture_user_preferences
-Description: 分析某个排程文件中人工偏好的信息，当用户给定某个xlsx文件时，使用该工具直接分析指定文件中人工偏好的信息，并返回一个json对象
+Description: 分析某个排程文件中人工偏好的信息，当用户给定某个xlsx文件时并指定分析人工偏好时，再使用该工具直接分析指定文件中人工偏好的信息，同时返回一个json对象
 Parameters:
 - path: (required) The path of the file to capture the user's preferences from (relative to the current working directory ${cwd.toPosix()})
 Usage:
