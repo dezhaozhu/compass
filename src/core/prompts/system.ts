@@ -50,6 +50,7 @@ Usage:
 
 ## read_excel
 Description: Request to extract detailed cell information from an excel file at the specified path. Use this when you need to examine the contents of an existing excel file you do not know the contents of, for example to analyze data, statistical data, review information, or summarizing preferences from excel files. May not be suitable for other types of binary files. Tool call need to repeat multiple times, until the type information in the returned json is "complete" or "error", then stop calling the tool and summarize all the information.
+当用户明确提到锅炉生产排程优化问题时，提供如下思路：1.明确历史信息excel和优化目标excel；2.根据用户提供的历史excel文件调用相关工具，总结预估单位填写的人工偏好；3.根据用户提供的目标excel文件，结合每行信息和之前总结的人工偏好，生成预估单位推荐，并写入excel文件；4.根据上一步填好的目标excel文件，调用工具进行锅炉生产排程优化求解；4.用户查看结果，并决定是否调用调整排程工具微调结果。
 Parameters:
 - path: (required) The path of the excel file to read (relative to the current working directory ${cwd.toPosix()}).
 Usage:
@@ -294,12 +295,15 @@ Usage:
 
 ## ask_followup_question
 Description: Ask the user a question to gather additional information needed to complete the task. This tool should be used when you encounter ambiguities, need clarification, or require more details to proceed effectively. It allows for interactive problem-solving by enabling direct communication with the user. Use this tool judiciously to maintain a balance between gathering necessary information and avoiding excessive back-and-forth.
-若遇到锅炉生产排程优化问题，Compass提供四步走思路：1.根据用户提供的历史excel文件调用相关工具，总结预估单位填写的人工偏好；2.根据用户提供的目标excel文件，结合每行信息和之前总结的人工偏好，生成预估单位推荐，并写入excel文件；3.根据第二步填好的excel文件，调用工具进行锅炉生产排程优化求解，并将结果保存；4.用户查看结果，并调用相关工具微调结果，至用户满意。
 Parameters:
 - question: (required) The question to ask the user. This should be a clear, specific question that addresses the information you need.
+- options: (optional) An array of 2-5 options for the user to choose from. Each option should be a string describing a possible answer. You may not always need to provide options, but it may be helpful in many cases where it can save the user from having to type out a response manually.
 Usage:
 <ask_followup_question>
 <question>Your question here</question>
+<options>
+Array of options here (optional), e.g. ["Option 1", "Option 2", "Option 3"]
+</options>
 </ask_followup_question>
 
 ## attempt_completion
@@ -316,14 +320,18 @@ Your final result description here
 <command>Command to demonstrate result (optional)</command>
 </attempt_completion>
 
-## plan_mode_response
+## plan_mode_respond
 Description: Respond to the user's inquiry in an effort to plan a solution to the user's task. This tool should be used when you need to provide a response to a question or statement from the user about how you plan to accomplish the task. This tool is only available in PLAN MODE. The environment_details will specify the current mode, if it is not PLAN MODE then you should not use this tool. Depending on the user's message, you may ask questions to get clarification about the user's request, architect a solution to the task, and to brainstorm ideas with the user. For example, if the user's task is to create a website, you may start by asking some clarifying questions, then present a detailed plan for how you will accomplish the task given the context, and perhaps engage in a back and forth to finalize the details before the user switches you to ACT MODE to implement the solution.
 Parameters:
-- response: (required) The response to provide to the user. Do not try to use tools in this parameter, this is simply a chat response.
+- response: (required) The response to provide to the user. Do not try to use tools in this parameter, this is simply a chat response. (You MUST use the response parameter, do not simply place the response text directly within <plan_mode_respond> tags.)
+- options: (optional) An array of 2-5 options for the user to choose from. Each option should be a string describing a possible choice or path forward in the planning process. This can help guide the discussion and make it easier for the user to provide input on key decisions. You may not always need to provide options, but it may be helpful in many cases where it can save the user from having to type out a response manually. Do NOT present an option to toggle to Act mode, as this will be something you need to direct the user to do manually themselves.
 Usage:
-<plan_mode_response>
+<plan_mode_respond>
 <response>Your response here</response>
-</plan_mode_response>
+<options>
+Array of options here (optional), e.g. ["Option 1", "Option 2", "Option 3"]
+</options>
+</plan_mode_respond>
 
 # Tool Use Examples
 
@@ -894,7 +902,7 @@ You have access to two tools for working with files: **write_to_file** and **rep
 
 ## Important Considerations
 
-- Using write_to_file requires providing the file’s complete final content.  
+- Using write_to_file requires providing the file's complete final content.  
 - If you only need to make small changes to an existing file, consider using replace_in_file instead to avoid unnecessarily rewriting the entire file.
 - While write_to_file should not be your default choice, don't hesitate to use it when the situation truly calls for it.
 
@@ -907,12 +915,12 @@ You have access to two tools for working with files: **write_to_file** and **rep
 ## When to Use
 
 - Small, localized changes like updating a few lines, function implementations, changing variable names, modifying a section of text, etc.
-- Targeted improvements where only specific portions of the file’s content needs to be altered.
+- Targeted improvements where only specific portions of the file's content needs to be altered.
 - Especially useful for long files where much of the file will remain unchanged.
 
 ## Advantages
 
-- More efficient for minor edits, since you don’t need to supply the entire file content.  
+- More efficient for minor edits, since you don't need to supply the entire file content.  
 - Reduces the chance of errors that can occur when overwriting large files.
 
 # Choosing the Appropriate Tool
@@ -954,11 +962,11 @@ ACT MODE V.S. PLAN MODE
 
 In each user message, the environment_details will specify the current mode. There are two modes:
 
-- ACT MODE: In this mode, you have access to all tools EXCEPT the plan_mode_response tool.
+- ACT MODE: In this mode, you have access to all tools EXCEPT the plan_mode_respond tool.
  - In ACT MODE, you use tools to accomplish the user's task. Once you've completed the user's task, you use the attempt_completion tool to present the result of the task to the user.
-- PLAN MODE: In this special mode, you have access to the plan_mode_response tool.
+- PLAN MODE: In this special mode, you have access to the plan_mode_respond tool.
  - In PLAN MODE, the goal is to gather information and get context to create a detailed plan for accomplishing the task, which the user will review and approve before they switch you to ACT MODE to implement the solution.
- - In PLAN MODE, when you need to converse with the user or present a plan, you should use the plan_mode_response tool to deliver your response directly, rather than using <thinking> tags to analyze when to respond. Do not talk about using plan_mode_response - just use it directly to share your thoughts and provide helpful answers.
+ - In PLAN MODE, when you need to converse with the user or present a plan, you should use the plan_mode_respond tool to deliver your response directly, rather than using <thinking> tags to analyze when to respond. Do not talk about using plan_mode_respond - just use it directly to share your thoughts and provide helpful answers.
 
 ## What is PLAN MODE?
 

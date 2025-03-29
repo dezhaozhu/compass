@@ -67,15 +67,16 @@ export async function extractExelFile(
 			return await initializeSession(filePath)
 		}
 
-		if (session.currentChunkIndex >= session.totalChunks) {
-			sessions.delete(sessionId)
-			return JSON.stringify({
-				type: "complete",
-				message: "excel文件分析完成。",
-			} as ExcelLensResult)
-		} else {
-			return await processNextChunk(sessionId)
-		}
+		return await processNextChunk(sessionId)
+		// if (session.currentChunkIndex >= session.totalChunks) {
+		// 	sessions.delete(sessionId)
+		// 	return JSON.stringify({
+		// 		type: "complete",
+		// 		message: "excel文件分析完成。",
+		// 	} as ExcelLensResult)
+		// } else {
+		// 	return await processNextChunk(sessionId)
+		// }
 	} catch (error) {
 		sessions.delete(path.resolve(filePath))
 		return JSON.stringify({
@@ -151,11 +152,21 @@ async function initializeSession(filePath: string): Promise<string> {
 async function processNextChunk(sessionId: string): Promise<string> {
 	const session = sessions.get(sessionId)!
 	const currentChunk = session.csvChunks[session.currentChunkIndex]
+	let result: ExcelLensResult
 
-	const result: ExcelLensResult = {
-		type: "chunk",
-		chunkData: currentChunk,
-		message: `分析excel中的第 ${session.currentChunkIndex + 1} 个数据块，工作表: ${currentChunk.sheetName}, 行范围: ${currentChunk.startRow}-${currentChunk.endRow})，需继续重复调用当前工具进行分析。`,
+	if (session.currentChunkIndex + 1 >= session.totalChunks) {
+		result = {
+			type: "complete",
+			chunkData: currentChunk,
+			message: `已获取最后部分数据，即excel中的第 ${session.currentChunkIndex + 1} 个数据块，工作表: ${currentChunk.sheetName}, 行范围: ${currentChunk.startRow}-${currentChunk.endRow})。请总结分析当前数据和之前获取的数据。`,
+		}
+		sessions.delete(sessionId)
+	} else {
+		result = {
+			type: "chunk",
+			chunkData: currentChunk,
+			message: `请分析excel中的第 ${session.currentChunkIndex + 1} 个数据块，工作表: ${currentChunk.sheetName}, 行范围: ${currentChunk.startRow}-${currentChunk.endRow})。需继续调用当前工具以获取全部数据进行分析。`,
+		}
 	}
 
 	session.currentChunkIndex++

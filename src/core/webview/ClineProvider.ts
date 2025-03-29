@@ -14,6 +14,7 @@ import { fetchOpenGraphData, isImageUrl } from "../../integrations/misc/link-pre
 import { selectImages } from "../../integrations/misc/process-images"
 import { getTheme } from "../../integrations/theme/getTheme"
 import WorkspaceTracker from "../../integrations/workspace/WorkspaceTracker"
+import { ClineAccountService } from "../../services/account/ClineAccountService"
 import { McpHub } from "../../services/mcp/McpHub"
 import { UserInfo } from "../../shared/UserInfo"
 import { ApiConfiguration, ApiProvider, ModelInfo } from "../../shared/api"
@@ -36,6 +37,9 @@ import { telemetryService } from "../../services/telemetry/TelemetryService"
 import { TelemetrySetting } from "../../shared/TelemetrySetting"
 import { cleanupLegacyCheckpoints } from "../../integrations/checkpoints/CheckpointMigration"
 import CheckpointTracker from "../../integrations/checkpoints/CheckpointTracker"
+import { getTotalTasksSize } from "../../utils/storage"
+import { GlobalFileNames } from "../../global-constants"
+import { setTimeout as setTimeoutPromise } from "node:timers/promises"
 
 /*
 https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
@@ -62,12 +66,14 @@ type SecretKey =
 	| "authNonce"
 	| "asksageApiKey"
 	| "xaiApiKey"
+	| "sambanovaApiKey"
 type GlobalStateKey =
 	| "apiProvider"
 	| "apiModelId"
 	| "awsRegion"
 	| "awsUseCrossRegionInference"
 	| "awsBedrockUsePromptCache"
+	| "awsBedrockEndpoint"
 	| "awsProfile"
 	| "awsUseProfile"
 	| "vertexProjectId"
@@ -87,6 +93,7 @@ type GlobalStateKey =
 	| "azureApiVersion"
 	| "openRouterModelId"
 	| "openRouterModelInfo"
+	| "openRouterProviderSorting"
 	| "autoApprovalSettings"
 	| "browserSettings"
 	| "chatSettings"
@@ -95,6 +102,7 @@ type GlobalStateKey =
 	| "previousModeApiProvider"
 	| "previousModeModelId"
 	| "previousModeThinkingBudgetTokens"
+	| "previousModeVsCodeLmModelSelector"
 	| "previousModeModelInfo"
 	| "liteLlmBaseUrl"
 	| "liteLlmModelId"
@@ -107,14 +115,6 @@ type GlobalStateKey =
 	| "thinkingBudgetTokens"
 	| "planActSeparateModelsSetting"
 
-export const GlobalFileNames = {
-	apiConversationHistory: "api_conversation_history.json",
-	uiMessages: "ui_messages.json",
-	openRouterModels: "openrouter_models.json",
-	mcpSettings: "cline_mcp_settings.json",
-	clineRules: ".clinerules",
-}
-
 export class ClineProvider implements vscode.WebviewViewProvider {
 	public static readonly sideBarId = "claude-dev.SidebarProvider" // used in package.json as the view's id. This value cannot be changed due to how vscode caches views based on their id, and updating the id would break existing instances of the extension.
 	public static readonly tabPanelId = "claude-dev.TabPanelProvider"
@@ -124,7 +124,8 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 	private cline?: Cline
 	workspaceTracker?: WorkspaceTracker
 	mcpHub?: McpHub
-	private latestAnnouncementId = "feb-19-2025" // update to some unique identifier when we add a new announcement
+	accountService?: ClineAccountService
+	private latestAnnouncementId = "march-22-2025" // update to some unique identifier when we add a new announcement
 
 	constructor(
 		readonly context: vscode.ExtensionContext,
@@ -134,6 +135,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		ClineProvider.activeInstances.add(this)
 		this.workspaceTracker = new WorkspaceTracker(this)
 		this.mcpHub = new McpHub(this)
+		this.accountService = new ClineAccountService(this)
 
 		// Clean up legacy checkpoints
 		cleanupLegacyCheckpoints(this.context.globalStorageUri.fsPath, this.outputChannel).catch((error) => {
@@ -164,6 +166,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		this.workspaceTracker = undefined
 		this.mcpHub?.dispose()
 		this.mcpHub = undefined
+		this.accountService = undefined
 		this.outputChannel.appendLine("Disposed all disposables")
 		ClineProvider.activeInstances.delete(this)
 	}
@@ -572,6 +575,13 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 							await this.togglePlanActModeWithChatSettings(message.chatSettings, message.chatContent)
 						}
 						break
+					case "optionsResponse":
+						await this.postMessageToWebview({
+							type: "invoke",
+							invoke: "sendMessage",
+							text: message.text,
+						})
+						break
 					// case "relaunchChromeDebugMode":
 					// 	if (this.cline) {
 					// 		this.cline.browserSession.relaunchChromeDebugMode()
@@ -717,6 +727,14 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						await this.handleSignOut()
 						break
 					}
+					case "showAccountViewClicked": {
+						await this.postMessageToWebview({ type: "action", action: "accountButtonClicked" })
+						break
+					}
+					case "fetchUserCreditsData": {
+						await this.fetchUserCreditsData()
+						break
+					}
 					case "showMcpView": {
 						await this.postMessageToWebview({ type: "action", action: "mcpButtonClicked" })
 						break
@@ -805,6 +823,10 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						} catch (error) {
 							console.error(`Failed to toggle auto-approve for tool ${message.toolName}:`, error)
 						}
+						break
+					}
+					case "requestTotalTasksSize": {
+						this.refreshTotalTasksSize()
 						break
 					}
 					case "restartMcpServer": {
@@ -908,6 +930,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 					case "clearAllTaskHistory": {
 						await this.deleteAllTaskHistory()
 						await this.postStateToWebview()
+						this.refreshTotalTasksSize()
 						this.postMessageToWebview({ type: "relinquishControl" })
 						break
 					}
@@ -938,6 +961,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			previousModeApiProvider: newApiProvider,
 			previousModeModelId: newModelId,
 			previousModeModelInfo: newModelInfo,
+			previousModeVsCodeLmModelSelector: newVsCodeLmModelSelector,
 			previousModeThinkingBudgetTokens: newThinkingBudgetTokens,
 			planActSeparateModelsSetting,
 		} = await this.getState()
@@ -955,6 +979,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 				case "gemini":
 				case "asksage":
 				case "openai-native":
+				case "qwen":
 				case "deepseek":
 					await this.updateGlobalState("previousModeModelId", apiConfiguration.apiModelId)
 					break
@@ -964,7 +989,8 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 					await this.updateGlobalState("previousModeModelInfo", apiConfiguration.openRouterModelInfo)
 					break
 				case "vscode-lm":
-					await this.updateGlobalState("previousModeModelId", apiConfiguration.vsCodeLmModelSelector)
+					// Important we don't set modelId to this, as it's an object not string (webview expects model id to be a string)
+					await this.updateGlobalState("previousModeVsCodeLmModelSelector", apiConfiguration.vsCodeLmModelSelector)
 					break
 				case "openai":
 					await this.updateGlobalState("previousModeModelId", apiConfiguration.openAiModelId)
@@ -985,7 +1011,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			}
 
 			// Restore the model used in previous mode
-			if (newApiProvider || newModelId || newThinkingBudgetTokens !== undefined) {
+			if (newApiProvider || newModelId || newThinkingBudgetTokens !== undefined || newVsCodeLmModelSelector) {
 				await this.updateGlobalState("apiProvider", newApiProvider)
 				await this.updateGlobalState("thinkingBudgetTokens", newThinkingBudgetTokens)
 				switch (newApiProvider) {
@@ -995,6 +1021,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 					case "gemini":
 					case "asksage":
 					case "openai-native":
+					case "qwen":
 					case "deepseek":
 						await this.updateGlobalState("apiModelId", newModelId)
 						break
@@ -1004,7 +1031,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						await this.updateGlobalState("openRouterModelInfo", newModelInfo)
 						break
 					case "vscode-lm":
-						await this.updateGlobalState("vsCodeLmModelSelector", newModelId)
+						await this.updateGlobalState("vsCodeLmModelSelector", newVsCodeLmModelSelector)
 						break
 					case "openai":
 						await this.updateGlobalState("openAiModelId", newModelId)
@@ -1100,6 +1127,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			awsRegion,
 			awsUseCrossRegionInference,
 			awsBedrockUsePromptCache,
+			awsBedrockEndpoint,
 			awsProfile,
 			awsUseProfile,
 			vertexProjectId,
@@ -1126,6 +1154,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			azureApiVersion,
 			openRouterModelId,
 			openRouterModelInfo,
+			openRouterProviderSorting,
 			vsCodeLmModelSelector,
 			liteLlmBaseUrl,
 			liteLlmModelId,
@@ -1136,6 +1165,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			xaiApiKey,
 			thinkingBudgetTokens,
 			clineApiKey,
+			sambanovaApiKey,
 		} = apiConfiguration
 		await this.updateGlobalState("apiProvider", apiProvider)
 		await this.updateGlobalState("apiModelId", apiModelId)
@@ -1147,6 +1177,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		await this.updateGlobalState("awsRegion", awsRegion)
 		await this.updateGlobalState("awsUseCrossRegionInference", awsUseCrossRegionInference)
 		await this.updateGlobalState("awsBedrockUsePromptCache", awsBedrockUsePromptCache)
+		await this.updateGlobalState("awsBedrockEndpoint", awsBedrockEndpoint)
 		await this.updateGlobalState("awsProfile", awsProfile)
 		await this.updateGlobalState("awsUseProfile", awsUseProfile)
 		await this.updateGlobalState("vertexProjectId", vertexProjectId)
@@ -1173,6 +1204,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		await this.updateGlobalState("azureApiVersion", azureApiVersion)
 		await this.updateGlobalState("openRouterModelId", openRouterModelId)
 		await this.updateGlobalState("openRouterModelInfo", openRouterModelInfo)
+		await this.updateGlobalState("openRouterProviderSorting", openRouterProviderSorting)
 		await this.updateGlobalState("vsCodeLmModelSelector", vsCodeLmModelSelector)
 		await this.updateGlobalState("liteLlmBaseUrl", liteLlmBaseUrl)
 		await this.updateGlobalState("liteLlmModelId", liteLlmModelId)
@@ -1183,6 +1215,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		await this.updateGlobalState("asksageApiUrl", asksageApiUrl)
 		await this.updateGlobalState("thinkingBudgetTokens", thinkingBudgetTokens)
 		await this.storeSecret("clineApiKey", clineApiKey)
+		await this.storeSecret("sambanovaApiKey", sambanovaApiKey)
 		if (this.cline) {
 			this.cline.api = buildApiHandler(apiConfiguration)
 		}
@@ -1293,6 +1326,20 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
+	// Account
+
+	async fetchUserCreditsData() {
+		try {
+			await Promise.all([
+				this.accountService?.fetchBalance(),
+				this.accountService?.fetchUsageTransactions(),
+				this.accountService?.fetchPaymentTransactions(),
+			])
+		} catch (error) {
+			console.error("Failed to fetch user credits data:", error)
+		}
+	}
+
 	// Auth
 
 	public async validateAuthState(state: string | null): Promise<boolean> {
@@ -1331,7 +1378,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			}
 
 			await this.postStateToWebview()
-			vscode.window.showInformationMessage("Successfully logged in to Compass")
+			// vscode.window.showInformationMessage("Successfully logged in to Cline")
 		} catch (error) {
 			console.error("Failed to handle auth callback:", error)
 			vscode.window.showErrorMessage("Failed to log in to Compass")
@@ -1701,6 +1748,104 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 		return models
 	}
 
+	// Context menus and code actions
+
+	getFileMentionFromPath(filePath: string) {
+		const cwd = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0)
+		if (!cwd) {
+			return "@/" + filePath
+		}
+		const relativePath = path.relative(cwd, filePath)
+		return "@/" + relativePath
+	}
+
+	// 'Add to Cline' context menu in editor and code action
+	async addSelectedCodeToChat(code: string, filePath: string, languageId: string, diagnostics?: vscode.Diagnostic[]) {
+		// Ensure the sidebar view is visible
+		await vscode.commands.executeCommand("claude-dev.SidebarProvider.focus")
+		await setTimeoutPromise(100)
+
+		// Post message to webview with the selected code
+		const fileMention = this.getFileMentionFromPath(filePath)
+
+		let input = `${fileMention}\n\`\`\`\n${code}\n\`\`\``
+		if (diagnostics) {
+			const problemsString = this.convertDiagnosticsToProblemsString(diagnostics)
+			input += `\nProblems:\n${problemsString}`
+		}
+
+		await this.postMessageToWebview({
+			type: "addToInput",
+			text: input,
+		})
+
+		console.log("addSelectedCodeToChat", code, filePath, languageId)
+	}
+
+	// 'Add to Cline' context menu in Terminal
+	async addSelectedTerminalOutputToChat(output: string, terminalName: string) {
+		// Ensure the sidebar view is visible
+		await vscode.commands.executeCommand("claude-dev.SidebarProvider.focus")
+		await setTimeoutPromise(100)
+
+		// Post message to webview with the selected terminal output
+		// await this.postMessageToWebview({
+		//     type: "addSelectedTerminalOutput",
+		//     output,
+		//     terminalName
+		// })
+
+		await this.postMessageToWebview({
+			type: "addToInput",
+			text: `Terminal output:\n\`\`\`\n${output}\n\`\`\``,
+		})
+
+		console.log("addSelectedTerminalOutputToChat", output, terminalName)
+	}
+
+	// 'Fix with Cline' in code actions
+	async fixWithCline(code: string, filePath: string, languageId: string, diagnostics: vscode.Diagnostic[]) {
+		// Ensure the sidebar view is visible
+		await vscode.commands.executeCommand("claude-dev.SidebarProvider.focus")
+		await setTimeoutPromise(100)
+
+		const fileMention = this.getFileMentionFromPath(filePath)
+		const problemsString = this.convertDiagnosticsToProblemsString(diagnostics)
+		await this.initClineWithTask(
+			`Fix the following code in ${fileMention}\n\`\`\`\n${code}\n\`\`\`\n\nProblems:\n${problemsString}`,
+		)
+
+		console.log("fixWithCline", code, filePath, languageId, diagnostics, problemsString)
+	}
+
+	convertDiagnosticsToProblemsString(diagnostics: vscode.Diagnostic[]) {
+		let problemsString = ""
+		for (const diagnostic of diagnostics) {
+			let label: string
+			switch (diagnostic.severity) {
+				case vscode.DiagnosticSeverity.Error:
+					label = "Error"
+					break
+				case vscode.DiagnosticSeverity.Warning:
+					label = "Warning"
+					break
+				case vscode.DiagnosticSeverity.Information:
+					label = "Information"
+					break
+				case vscode.DiagnosticSeverity.Hint:
+					label = "Hint"
+					break
+				default:
+					label = "Diagnostic"
+			}
+			const line = diagnostic.range.start.line + 1 // VSCode lines are 0-indexed
+			const source = diagnostic.source ? `${diagnostic.source} ` : ""
+			problemsString += `\n- [${source}${label}] Line ${line}: ${diagnostic.message}`
+		}
+		problemsString = problemsString.trim()
+		return problemsString
+	}
+
 	// Task history
 
 	async getTaskWithId(id: string): Promise<{
@@ -1773,46 +1918,56 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 		// await this.postStateToWebview()
 	}
 
+	async refreshTotalTasksSize() {
+		getTotalTasksSize(this.context.globalStorageUri.fsPath)
+			.then((newTotalSize) => {
+				this.postMessageToWebview({
+					type: "totalTasksSize",
+					totalTasksSize: newTotalSize,
+				})
+			})
+			.catch((error) => {
+				console.error("Error calculating total tasks size:", error)
+			})
+	}
+
 	async deleteTaskWithId(id: string) {
 		console.info("deleteTaskWithId: ", id)
 
-		if (id === this.cline?.taskId) {
-			await this.clearTask()
-			console.debug("cleared task")
+		try {
+			if (id === this.cline?.taskId) {
+				await this.clearTask()
+				console.debug("cleared task")
+			}
+
+			const { taskDirPath, apiConversationHistoryFilePath, uiMessagesFilePath } = await this.getTaskWithId(id)
+
+			const updatedTaskHistory = await this.deleteTaskFromState(id)
+
+			// Delete the task files
+			const apiConversationHistoryFileExists = await fileExistsAtPath(apiConversationHistoryFilePath)
+			if (apiConversationHistoryFileExists) {
+				await fs.unlink(apiConversationHistoryFilePath)
+			}
+			const uiMessagesFileExists = await fileExistsAtPath(uiMessagesFilePath)
+			if (uiMessagesFileExists) {
+				await fs.unlink(uiMessagesFilePath)
+			}
+			const legacyMessagesFilePath = path.join(taskDirPath, "claude_messages.json")
+			if (await fileExistsAtPath(legacyMessagesFilePath)) {
+				await fs.unlink(legacyMessagesFilePath)
+			}
+
+			await fs.rmdir(taskDirPath) // succeeds if the dir is empty
+
+			if (updatedTaskHistory.length === 0) {
+				await this.deleteAllTaskHistory()
+			}
+		} catch (error) {
+			console.debug(`Error deleting task:`, error)
 		}
 
-		const { taskDirPath, apiConversationHistoryFilePath, uiMessagesFilePath } = await this.getTaskWithId(id)
-
-		// Delete checkpoints
-		console.info("deleting checkpoints")
-		const taskHistory = ((await this.getGlobalState("taskHistory")) as HistoryItem[] | undefined) || []
-		const historyItem = taskHistory.find((item) => item.id === id)
-		//console.log("historyItem: ", historyItem)
-		// if (historyItem) {
-		// 	try {
-		// 		await CheckpointTracker.deleteCheckpoints(id, historyItem, this.context.globalStorageUri.fsPath)
-		// 	} catch (error) {
-		// 		console.error(`Failed to delete checkpoints for task ${id}:`, error)
-		// 	}
-		// }
-
-		await this.deleteTaskFromState(id)
-
-		// Delete the task files
-		const apiConversationHistoryFileExists = await fileExistsAtPath(apiConversationHistoryFilePath)
-		if (apiConversationHistoryFileExists) {
-			await fs.unlink(apiConversationHistoryFilePath)
-		}
-		const uiMessagesFileExists = await fileExistsAtPath(uiMessagesFilePath)
-		if (uiMessagesFileExists) {
-			await fs.unlink(uiMessagesFilePath)
-		}
-		const legacyMessagesFilePath = path.join(taskDirPath, "claude_messages.json")
-		if (await fileExistsAtPath(legacyMessagesFilePath)) {
-			await fs.unlink(legacyMessagesFilePath)
-		}
-
-		await fs.rmdir(taskDirPath) // succeeds if the dir is empty
+		this.refreshTotalTasksSize()
 	}
 
 	async deleteTaskFromState(id: string) {
@@ -1823,6 +1978,8 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 
 		// Notify the webview that the task has been deleted
 		await this.postStateToWebview()
+
+		return updatedTaskHistory
 	}
 
 	async postStateToWebview() {
@@ -1934,6 +2091,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			awsRegion,
 			awsUseCrossRegionInference,
 			awsBedrockUsePromptCache,
+			awsBedrockEndpoint,
 			awsProfile,
 			awsUseProfile,
 			vertexProjectId,
@@ -1960,6 +2118,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			azureApiVersion,
 			openRouterModelId,
 			openRouterModelInfo,
+			openRouterProviderSorting,
 			lastShownAnnouncementId,
 			customInstructions,
 			taskHistory,
@@ -1973,6 +2132,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			previousModeApiProvider,
 			previousModeModelId,
 			previousModeModelInfo,
+			previousModeVsCodeLmModelSelector,
 			previousModeThinkingBudgetTokens,
 			qwenApiLine,
 			liteLlmApiKey,
@@ -1981,6 +2141,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			asksageApiUrl,
 			xaiApiKey,
 			thinkingBudgetTokens,
+			sambanovaApiKey,
 			planActSeparateModelsSettingRaw,
 		] = await Promise.all([
 			this.getGlobalState("apiProvider") as Promise<ApiProvider | undefined>,
@@ -1994,6 +2155,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			this.getGlobalState("awsRegion") as Promise<string | undefined>,
 			this.getGlobalState("awsUseCrossRegionInference") as Promise<boolean | undefined>,
 			this.getGlobalState("awsBedrockUsePromptCache") as Promise<boolean | undefined>,
+			this.getGlobalState("awsBedrockEndpoint") as Promise<string | undefined>,
 			this.getGlobalState("awsProfile") as Promise<string | undefined>,
 			this.getGlobalState("awsUseProfile") as Promise<boolean | undefined>,
 			this.getGlobalState("vertexProjectId") as Promise<string | undefined>,
@@ -2020,6 +2182,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			this.getGlobalState("azureApiVersion") as Promise<string | undefined>,
 			this.getGlobalState("openRouterModelId") as Promise<string | undefined>,
 			this.getGlobalState("openRouterModelInfo") as Promise<ModelInfo | undefined>,
+			this.getGlobalState("openRouterProviderSorting") as Promise<string | undefined>,
 			this.getGlobalState("lastShownAnnouncementId") as Promise<string | undefined>,
 			this.getGlobalState("customInstructions") as Promise<string | undefined>,
 			this.getGlobalState("taskHistory") as Promise<HistoryItem[] | undefined>,
@@ -2033,6 +2196,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			this.getGlobalState("previousModeApiProvider") as Promise<ApiProvider | undefined>,
 			this.getGlobalState("previousModeModelId") as Promise<string | undefined>,
 			this.getGlobalState("previousModeModelInfo") as Promise<ModelInfo | undefined>,
+			this.getGlobalState("previousModeVsCodeLmModelSelector") as Promise<vscode.LanguageModelChatSelector | undefined>,
 			this.getGlobalState("previousModeThinkingBudgetTokens") as Promise<number | undefined>,
 			this.getGlobalState("qwenApiLine") as Promise<string | undefined>,
 			this.getSecret("liteLlmApiKey") as Promise<string | undefined>,
@@ -2041,6 +2205,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			this.getGlobalState("asksageApiUrl") as Promise<string | undefined>,
 			this.getSecret("xaiApiKey") as Promise<string | undefined>,
 			this.getGlobalState("thinkingBudgetTokens") as Promise<number | undefined>,
+			this.getSecret("sambanovaApiKey") as Promise<string | undefined>,
 			this.getGlobalState("planActSeparateModelsSetting") as Promise<boolean | undefined>,
 		])
 
@@ -2095,6 +2260,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 				awsRegion,
 				awsUseCrossRegionInference,
 				awsBedrockUsePromptCache,
+				awsBedrockEndpoint,
 				awsProfile,
 				awsUseProfile,
 				vertexProjectId,
@@ -2122,6 +2288,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 				azureApiVersion,
 				openRouterModelId,
 				openRouterModelInfo,
+				openRouterProviderSorting,
 				vsCodeLmModelSelector,
 				o3MiniReasoningEffort,
 				thinkingBudgetTokens,
@@ -2131,6 +2298,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 				asksageApiKey,
 				asksageApiUrl,
 				xaiApiKey,
+				sambanovaApiKey,
 			},
 			lastShownAnnouncementId,
 			customInstructions,
@@ -2142,6 +2310,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			previousModeApiProvider,
 			previousModeModelId,
 			previousModeModelInfo,
+			previousModeVsCodeLmModelSelector,
 			previousModeThinkingBudgetTokens,
 			mcpMarketplaceEnabled,
 			telemetrySetting: telemetrySetting || "unset",
@@ -2277,6 +2446,7 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			"liteLlmApiKey",
 			"asksageApiKey",
 			"xaiApiKey",
+			"sambanovaApiKey",
 		]
 		for (const key of secretKeys) {
 			await this.storeSecret(key, undefined)
