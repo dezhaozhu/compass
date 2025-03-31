@@ -87,7 +87,7 @@ export async function extractExelFile(
 }
 
 function determineChunkSize(columnCount: number): number {
-	const targetCellCount = 4000
+	const targetCellCount = 2000
 	const rowCount = Math.floor(targetCellCount / columnCount)
 	return rowCount
 }
@@ -158,17 +158,16 @@ async function processNextChunk(sessionId: string): Promise<string> {
 		result = {
 			type: "complete",
 			chunkData: currentChunk,
-			message: `已获取最后部分数据，即excel中的第 ${session.currentChunkIndex + 1} 个数据块，工作表: ${currentChunk.sheetName}, 行范围: ${currentChunk.startRow}-${currentChunk.endRow})。请总结分析当前数据和之前获取的数据。`,
+			message: `已获取最后部分数据，即excel中的第 ${session.currentChunkIndex + 1} 个数据块，工作表: ${currentChunk.sheetName}, 行范围: ${currentChunk.startRow}-${currentChunk.endRow}。请总结分析当前获取和历史获取数据。`,
 		}
 		sessions.delete(sessionId)
 	} else {
 		result = {
 			type: "chunk",
 			chunkData: currentChunk,
-			message: `请分析excel中的第 ${session.currentChunkIndex + 1} 个数据块，工作表: ${currentChunk.sheetName}, 行范围: ${currentChunk.startRow}-${currentChunk.endRow})。需继续调用当前工具以获取全部数据进行分析。`,
+			message: `请分析excel中的第 ${session.currentChunkIndex + 1} 个数据块，工作表: ${currentChunk.sheetName}, 行范围: ${currentChunk.startRow}-${currentChunk.endRow}。简单总结，不要废话太多，然后继续调用当前工具至获取全部数据。`,
 		}
+		session.currentChunkIndex++
 	}
-
-	session.currentChunkIndex++
 	return JSON.stringify(result)
 }
